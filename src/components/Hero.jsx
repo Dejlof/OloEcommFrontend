@@ -1,5 +1,6 @@
 import React from 'react'
 import Shopper from '../assets/Shopper.png'
+import GirlShop from '../assets/girlshop.png'
 
 const Hero = () => {
   return (
@@ -11,8 +12,8 @@ const Hero = () => {
              </p>
              <button className='px-3 py-1 bg-green-900 text-white'><a href="">Explore</a></button>
         </div>
-        <div className='basis-1/2 '>
-            <img src={Shopper} alt="ShopperImage" className='' />
+        <div className='basis-1/2 text-left py-5'>
+            <img src={GirlShop} alt="ShopperImage" className='h-100' />
         </div>
         
     </div>
