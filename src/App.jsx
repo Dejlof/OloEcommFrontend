@@ -6,6 +6,7 @@ import Navbar from './components/Navbar'
 import Hero from './components/Hero'
 import Category from './components/Category'
 import BestSeller from './components/BestSeller'
+import MessageAd from './components/MessageAd'
 
 
 
@@ -16,6 +17,7 @@ function App() {
      <Hero />
      <Category/>
      <BestSeller/>
+     <MessageAd/>
     
     
     </>
