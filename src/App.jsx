@@ -5,6 +5,7 @@ import './App.css'
 import Navbar from './components/Navbar'
 import Hero from './components/Hero'
 import Category from './components/Category'
+import BestSeller from './components/BestSeller'
 
 
 
@@ -14,7 +15,9 @@ function App() {
      <Navbar />
      <Hero />
      <Category/>
-     
+     <BestSeller/>
+    
+    
     </>
   )
 }
