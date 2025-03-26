@@ -7,6 +7,7 @@ import Hero from './components/Hero'
 import Category from './components/Category'
 import BestSeller from './components/BestSeller'
 import MessageAd from './components/MessageAd'
+import LatestProduct from './components/LatestProduct'
 
 
 
@@ -18,7 +19,7 @@ function App() {
      <Category/>
      <BestSeller/>
      <MessageAd/>
-    
+    <LatestProduct/>
     
     </>
   )
