@@ -8,6 +8,7 @@ import Category from './components/Category'
 import BestSeller from './components/BestSeller'
 import MessageAd from './components/MessageAd'
 import LatestProduct from './components/LatestProduct'
+import Footer from './components/Footer'
 
 
 
@@ -20,7 +21,7 @@ function App() {
      <BestSeller/>
      <MessageAd/>
     <LatestProduct/>
-    
+    <Footer/>
     </>
   )
 }
