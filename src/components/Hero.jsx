@@ -10,7 +10,7 @@ const Hero = () => {
             <h1 className='font-bold text-xl'>Oloja Marketplace – Your Ultimate Shopping Destination! </h1>
             <p className='pb-2'>Buy & sell with ease on Oloja Marketplace! 
              </p>
-             <button className='px-3 py-1 bg-green-900 text-white'><a href="">Explore</a></button>
+             <button className='px-3 py-1 ease-in-out duration-1000  bg-green-900 text-white hover:bg-white hover:text-green-900 hover:translate-x-1 transition'><a href="">Explore</a></button>
         </div>
         <div className='basis-1/2 text-left py-5'>
             <img src={GirlShop} alt="ShopperImage" className='h-100' />
