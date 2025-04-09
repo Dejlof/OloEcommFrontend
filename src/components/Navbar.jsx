@@ -8,7 +8,7 @@ const Navbar = () => {
       </div>
       <div>
         <ul className='list-none p-0 m-0 flex flex-row '>
-            <li className='p-2'><a href="">Home</a></li>
+            <li className='p-2'><a href="/">Home</a></li>
             <li className='p-2'><a href="">Products</a></li>
             <li className='p-2'><a href="">About</a></li>
             <li className='p-2'><a href="">Contact Us</a></li>
