@@ -6,7 +6,7 @@ const CategoryPage = () => {
   return (
    <>
    <MainLayout>
-    <div className=' bg-gray-300 w-[75%] m-auto'>
+    <div className=' bg-gray-300 w-[75%] m-auto '>
     <div className='my-10'>
         <div className=' bg-white'>
         <div className=' flex flex-row justify-between pb-5'>
