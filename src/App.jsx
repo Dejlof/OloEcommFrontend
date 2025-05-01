@@ -7,6 +7,7 @@ import CategoryPage from './pages/CategoryPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 
 
 
@@ -20,6 +21,7 @@ function App() {
 <Route path='/login' element={<LoginPage/>} />
 <Route path='/register' element={<RegisterPage/>} />
 <Route path='/forgotpassword' element={<ForgotPassword/>} />
+<Route path='/resetpassword' element={<ResetPassword/>} />
 </Routes>
   )
 }

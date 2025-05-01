@@ -8,6 +8,9 @@ import Button from '../components/Button'
 
 
 const LoginPage = () => {
+ const [showPassword, setShowPassword] = React.useState(false);
+
+
   return (
     <MainLayout>
         <div className=' flex flex-col justify-center items-center w-[75%] m-auto h-100 text-sm pt-30'>
@@ -20,7 +23,7 @@ const LoginPage = () => {
             <div className='pt-4' >
             <Label label={"Password"}/>
             <div className='relative'>
-            <Input name={"password"} placeholder={"Password"} type={"Password"}/>
+            <Input name={"password"} placeholder={"Password"} type={showPassword ? "text":"password"}/>
             <button type="button"className="absolute right-5 top-3 text-gray-400" onClick={()=>{setShowPassword(!showPassword)}}>
        <i class="fa-regular fa-eye"></i>
          </button>
