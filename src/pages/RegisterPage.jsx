@@ -31,7 +31,7 @@ const RegisterPage = () => {
             <div className='pt-4' > 
                 <Label label="Role" />
             <select
-              className="border py-2 lg:pl-3 lg:pr-10 pl-10 pr-10  w-100 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border py-2 lg:pl-3 lg:pr-10 pl-10 pr-10  w-100 text-green-900 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               name="role"
             >
               <option value="">---</option>
