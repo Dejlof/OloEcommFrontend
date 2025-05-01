@@ -5,6 +5,7 @@ import ProductPage from './pages/ProductPage'
 import { Route, Routes } from 'react-router-dom'
 import CategoryPage from './pages/CategoryPage'
 import LoginPage from './pages/LoginPage'
+import RegisterPage from './pages/RegisterPage'
 
 
 
@@ -16,6 +17,8 @@ function App() {
 <Route path='/product' element={<ProductPage/>} />
 <Route path='/category' element={<CategoryPage/>} />
 <Route path='/login' element={<LoginPage/>} />
+<Route path='/register' element={<RegisterPage/>} />
+
 </Routes>
   )
 }
