@@ -7,6 +7,7 @@ import OtherProductsLike from '../components/OtherProductsLike';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faStar, faStarHalfAlt, faStar as faStarEmpty } from '@fortawesome/free-solid-svg-icons';
 import RatingSummary from '../components/RatingSummary';
+import { faArrowRight } from '@fortawesome/free-solid-svg-icons/faArrowRight';
 
 
 const ProductPage = ({}) => {
@@ -46,7 +47,7 @@ const ProductPage = ({}) => {
      <div className='mt-15'>
       <div className='flex flex-row justify-between pb-4'>
         <h3 className='pl-10 text-left text-xl font-bold'>Verified Customer Review</h3>
-        <p className='pr-10 text-right text-sm text-orange-400'>See All</p>
+        <p className='pr-10 text-right text-sm text-orange-400'>See All <FontAwesomeIcon icon={faArrowRight}/></p>
       </div>
       <div className='flex flex-row'>
          <div className=' basis-1/3'>
