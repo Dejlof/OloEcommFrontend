@@ -9,6 +9,7 @@ import RegisterPage from './pages/RegisterPage'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import AddProductPage from './pages/AddProductPage'
+import AddProductImages from './pages/AddProductImages'
 
 
 
@@ -24,6 +25,7 @@ function App() {
 <Route path='/forgotpassword' element={<ForgotPassword/>} />
 <Route path='/resetpassword' element={<ResetPassword/>} />
 <Route path='/addproduct' element={<AddProductPage/>} />
+<Route path='/productimages' element={<AddProductImages/>} />
 </Routes>
   )
 }
