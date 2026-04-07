@@ -1,5 +1,40 @@
 @import "tailwindcss";
+@import "react-toastify/dist/ReactToastify.css";
+
+html, body, #root {
+    height: 100%;
+}
 
 body {
     font-family: "Roboto", sans-serif;
+}
+
+/* ── Toastify custom theme ─────────────────────────────────────── */
+:root {
+  --toastify-font-family: "Roboto", sans-serif;
+  --toastify-toast-bd-radius: 0.75rem;
+  --toastify-toast-min-height: 56px;
+  --toastify-color-success: #14532d;
+  --toastify-icon-color-success: #14532d;
+  --toastify-color-progress-success: #14532d;
+  --toastify-color-error: #dc2626;
+  --toastify-icon-color-error: #dc2626;
+  --toastify-color-progress-error: #dc2626;
+  --toastify-color-warning: #f97316;
+  --toastify-icon-color-warning: #f97316;
+  --toastify-color-progress-warning: #f97316;
+  --toastify-color-info: #3b82f6;
+}
+
+.Toastify__toast {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  font-size: 0.875rem;
+}
+
+.Toastify__toast--success .Toastify__toast-icon svg {
+  fill: #14532d;
+}
+
+.Toastify__progress-bar--success {
+  background: #16a34a;
 }

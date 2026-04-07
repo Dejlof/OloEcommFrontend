@@ -1,26 +1,24 @@
 import React from 'react'
-import Card from './Card';
 import Macbook2 from '../assets/1MacBookAirM4.jpeg'
 import Macbook3 from '../assets/3MacbookAirM4.jpeg'
 import Macbook4 from '../assets/4MacbookAirM4.jpg'
 
-
 const OtherProductImages = () => {
   return (
     <div>
-        <div className='flex flex-row pt-20'>
-        <div className='basis-2/5'>
-        <div className='pb-4'>
-            <Card ImgSource={Macbook3} w='w-105' h='h-60'/>
+      <div className='flex flex-col sm:flex-row pt-10 sm:pt-20 gap-3'>
+        <div className='flex flex-row sm:flex-col sm:basis-2/5 gap-3'>
+          <div className='flex-1'>
+            <img src={Macbook3} alt="" className='w-full h-40 sm:h-48 object-cover rounded-lg' />
+          </div>
+          <div className='flex-1'>
+            <img src={Macbook4} alt="" className='w-full h-40 sm:h-48 object-cover rounded-lg' />
+          </div>
         </div>
-        <div>
-        <Card ImgSource={Macbook4} w='w-105' h='h-60'/>
+        <div className='sm:basis-3/5'>
+          <img src={Macbook2} alt="" className='w-full h-64 sm:h-full object-cover rounded-lg' />
         </div>
-        </div>
-        <div className='basis-3/5'>
-          <Card ImgSource={Macbook2} w='w-155' h='h-124'/>
-        </div>
-       </div>
+      </div>
     </div>
   )
 }

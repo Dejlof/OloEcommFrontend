@@ -1,77 +1,124 @@
-import React from 'react'
-import MainLayout from '../Layouts/MainLayout'
-import { Link } from 'react-router-dom'
-import Input from '../components/Input'
-import Label from '../components/Label'
-import Header from '../components/Header'
-import Button from '../components/Button'
+// src/pages/RegisterPage.jsx
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import MainLayout from '../layouts/MainLayout';
+import Input from '../components/Input';
+import Label from '../components/Label';
+import Header from '../components/Header';
+import Button from '../components/Button';
+import { useAuth } from '../context/AuthContext';
 
 const RegisterPage = () => {
-    const [showPassword, setShowPassword] = React.useState(false);
-    
+  const { register } = useAuth();
+  const navigate     = useNavigate();
 
-    
+  const [form, setForm] = useState({
+    firstName: '', lastName: '', email: '',
+    phoneNumber: '', role: '', password: '', confirmPassword: '',
+  });
+  const [showPassword, setShow] = useState(false);
+  const [loading, setLoading]   = useState(false);
+
+  const handle = (e) => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (Object.values(form).some(v => !v)) {
+      toast.error('Please fill in all fields.'); return;
+    }
+    if (form.password !== form.confirmPassword) {
+      toast.error('Passwords do not match.'); return;
+    }
+    if (form.password.length < 10) {
+      toast.error('Password must be at least 10 characters.'); return;
+    }
+    if (!['Buyer', 'Vendor'].includes(form.role)) {
+      toast.error('Please select a valid role.'); return;
+    }
+
+    setLoading(true);
+    try {
+      await register({
+        firstName:   form.firstName,
+        lastName:    form.lastName,
+        email:       form.email,
+        phoneNumber: form.phoneNumber,
+        role:        form.role,
+        password:    form.password,
+        confirmPassword: form.confirmPassword,
+      });
+      toast.success('Registration successful! Redirecting to login…');
+      setTimeout(() => navigate('/login'), 2000);
+    } catch (err) {
+      const msgs = err.errors?.length ? err.errors : [err.message];
+      toast.error(msgs.join(' '));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-   <MainLayout>
- <div className=' flex flex-col justify-center items-center w-[75%] m-auto h-160 text-sm pt-30'>
-            <Header title={"Sign Up"} word={"Welcome to Oloja!!! Please fill in your credentials"}/>
-         <div className='pt-4'>
-            <div >
-            <Label label={"First Name"}/>
-            <Input name={"firstname"} placeholder={"Your First Name"} type={"text"}/>
-            </div>
-            <div className='pt-4' >
-            <Label label={"Last Name"}/>
-            <Input name={"lastname"} placeholder={"Your Last Name"} type={"text"}/>
-            </div>
-            <div className='pt-4' >
-            <Label label={"Email"}/>
-            <Input name={"email"} placeholder={"Your Email"} type={"text"}/>
-            </div>
-            <div className='pt-4' >
-            <Label label={"Phone"}/>
-            <Input name={"phoneNumber"} placeholder={"Your Phone"} type={"phone"}/>
-            </div>
-            <div className='pt-4' > 
-                <Label label="Role" />
-            <select
-              className="border py-2 lg:pl-3 lg:pr-10 pl-10 pr-10  w-100 text-green-900 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              name="role"
-            >
-              <option value="">---</option>
-              <option value="buyer">Buyer</option>
-              <option value="vendor">Vendor</option>
+    <MainLayout>
+      <div className="flex flex-col justify-center items-center w-[92%] sm:w-[75%] m-auto min-h-[80vh] text-sm pt-16 pb-16">
+        <Header title="Sign Up" word="Welcome to Oloja! Please fill in your details" />
+
+        <form onSubmit={handleSubmit} className="pt-4 w-full max-w-sm">
+          <div><Label label="First Name" />
+            <Input name="firstName" value={form.firstName} onChange={handle} placeholder="First name" type="text" /></div>
+
+          <div className="pt-4"><Label label="Last Name" />
+            <Input name="lastName" value={form.lastName} onChange={handle} placeholder="Last name" type="text" /></div>
+
+          <div className="pt-4"><Label label="Email" />
+            <Input name="email" value={form.email} onChange={handle} placeholder="Your email" type="email" /></div>
+
+          <div className="pt-4"><Label label="Phone Number" />
+            <Input name="phoneNumber" value={form.phoneNumber} onChange={handle} placeholder="Your phone number" type="tel" /></div>
+
+          <div className="pt-4">
+            <Label label="Role" />
+            <select name="role" value={form.role} onChange={handle}
+              className="border py-2 pl-3 pr-3 w-full text-green-900 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">-- Select role --</option>
+              <option value="Buyer">Buyer</option>
+              <option value="Vendor">Vendor</option>
             </select>
+          </div>
 
+          <div className="pt-4"><Label label="Password" />
+            <div className="relative">
+              <Input name="password" value={form.password} onChange={handle}
+                placeholder="Password (min 10 chars)" type={showPassword ? 'text' : 'password'} />
+              <button type="button" className="absolute right-4 top-3 text-gray-400"
+                onClick={() => setShow(s => !s)}>
+                <i className={`fa-regular ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`} />
+              </button>
             </div>
-            <div className='pt-4' >
-            <Label label={"Password"}/>
-            <div className='relative'>
-            <Input name={"password"} placeholder={"Password"} type={showPassword ? "text":"password"}/>
-            <button type="button"className="absolute right-5 top-3 text-gray-400" onClick={()=>{setShowPassword(!showPassword)}}>
-       <i class="fa-regular fa-eye"></i>
-         </button>
-            </div>
-        </div>
-        <div className='pt-4' >
-            <Label label={"Confirm Password"}/>
-            <div className='relative'>
-            <Input name={"confirmPassword"} placeholder={"Confirm Password"} type={showPassword ? "text":"password"}/>
-            <button type="button"className="absolute right-5 top-3 text-gray-400" onClick={()=>{setShowPassword(!showPassword)}}>
-       <i class="fa-regular fa-eye"></i>
-         </button>
-            </div>
-            </div>  
-    <div className='text-center pt-8'>
-  <Button type={"submit"} >
-        Sign Up
-        </Button>
-  </div>
-         </div>
+          </div>
 
-        </div>
-   </MainLayout>
-  )
-}
+          <div className="pt-4"><Label label="Confirm Password" />
+            <div className="relative">
+              <Input name="confirmPassword" value={form.confirmPassword} onChange={handle}
+                placeholder="Confirm password" type={showPassword ? 'text' : 'password'} />
+            </div>
+          </div>
 
-export default RegisterPage
+          <div className="text-center pt-8">
+            <Button type="submit" disabled={loading}>
+              {loading ? 'Creating account…' : 'Sign Up'}
+            </Button>
+          </div>
+
+          <p className="text-center pt-4 text-gray-500">
+            Already have an account?{' '}
+            <Link to="/login" className="text-orange-500 font-medium underline">Log in</Link>
+          </p>
+        </form>
+      </div>
+    </MainLayout>
+  );
+};
+
+export default RegisterPage;

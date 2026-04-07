@@ -1,15 +1,15 @@
-import React, { Children } from 'react'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
 
-
-const MainLayout = ({children}) => {
+const MainLayout = ({ children }) => {
   return (
-    <>
-    <Navbar/>
-    {children}
-    <Footer/>
-    </>
+    <div className="flex flex-col min-h-screen">
+      <Navbar />
+      <main className="flex-grow">
+        {children}
+      </main>
+      <Footer />
+    </div>
   )
 }
 

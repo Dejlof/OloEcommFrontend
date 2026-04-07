@@ -14,7 +14,7 @@ const RatingSummary = ({ averageRating, totalRatings, ratingDistribution }) => {
       }
     }
   return (
-    <div className="bg-gray-100 p-6 rounded-lg shadow-md w-[300px] mx-auto">
+    <div className="bg-gray-100 p-6 rounded-lg shadow-md w-full sm:w-[300px] mx-auto">
     <h3 className="text-gray-600 font-bold text-lg text-center">VERIFIED RATINGS ({totalRatings})</h3>
     
     <div className="flex flex-col items-center mt-3">
