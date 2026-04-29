@@ -223,13 +223,13 @@ const Navbar = () => {
               </AnimatePresence>
             </div>
           ) : (
-            <div className="flex gap-2">
+            <div className="hidden md:flex gap-2">
               <Link to="/login"
                 className="text-sm px-3 py-1.5 border border-green-900 rounded-lg hover:bg-green-900 hover:text-orange-100 transition">
                 Log In
               </Link>
               <Link to="/register"
-                className="hidden md:block text-sm px-3 py-1.5 bg-green-900 text-orange-100 rounded-lg hover:bg-green-800 transition">
+                className="text-sm px-3 py-1.5 bg-green-900 text-orange-100 rounded-lg hover:bg-green-800 transition">
                 Sign Up
               </Link>
             </div>
