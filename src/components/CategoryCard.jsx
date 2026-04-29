@@ -1,6 +1,7 @@
 // src/components/CategoryCard.jsx
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faStar, faStarHalfAlt } from '@fortawesome/free-solid-svg-icons';
 import { useCart } from '../context/CartContext';
@@ -13,9 +14,9 @@ const CategoryCard = ({
   altname,
   Name,
   Price,
-  rating = 0,         // real avg from API — not hardcoded
-  totalRatings = 0,   // real count from API — not hardcoded
-  quantityInStock = 1, // used to grey out Add to Cart
+  rating = 0,
+  totalRatings = 0,
+  quantityInStock = 1,
 }) => {
   const { addToCart } = useCart();
   const { isAuthenticated } = useAuth();
@@ -27,7 +28,6 @@ const CategoryCard = ({
 
   const outOfStock = quantityInStock <= 0;
 
-  // ── star render from real rating ──────────────────────────────────────────
   const stars = [1,2,3,4,5].map(i => {
     const full = rating >= i;
     const half = !full && rating >= i - 0.5;
@@ -41,7 +41,7 @@ const CategoryCard = ({
   });
 
   const handleAddToCart = async (e) => {
-    e.preventDefault(); // don't navigate
+    e.preventDefault();
     if (!isAuthenticated) { navigate('/login'); return; }
     if (outOfStock) return;
     setAdding(true); setErr('');
@@ -58,16 +58,20 @@ const CategoryCard = ({
   };
 
   return (
-    <div className="group relative text-left transition hover:-translate-y-1 duration-300">
-      {/* Entire card is a link to the product page */}
+    <motion.div
+      className="group relative text-left"
+      whileHover={{ y: -4 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+    >
       <Link to={`/product/${productId}`} className="block">
-        {/* Image */}
         <div className="overflow-hidden rounded-xl bg-gray-100 h-44 relative">
           {ImgSource ? (
-            <img
+            <motion.img
               src={ImgSource}
               alt={altname}
-              className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+              className="w-full h-full object-cover"
+              whileHover={{ scale: 1.08 }}
+              transition={{ duration: 0.4 }}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-4xl text-gray-300">📦</div>
@@ -81,11 +85,9 @@ const CategoryCard = ({
           )}
         </div>
 
-        {/* Product info */}
         <h3 className="mt-2 text-sm font-medium text-green-900 truncate">{Name}</h3>
         <p className="text-sm font-bold text-green-900">{Price}</p>
 
-        {/* Live ratings — not hardcoded */}
         <div className="flex items-center gap-1 my-1">
           {stars}
           <span className="text-[10px] text-gray-400 ml-1">
@@ -94,11 +96,12 @@ const CategoryCard = ({
         </div>
       </Link>
 
-      {/* Add to Cart button — greyed out when out of stock */}
-      <button
+      <motion.button
         onClick={handleAddToCart}
         disabled={adding || outOfStock}
         title={outOfStock ? 'Out of stock' : err || (added ? 'Added!' : 'Add to cart')}
+        whileHover={!outOfStock ? { scale: 1.03 } : {}}
+        whileTap={!outOfStock ? { scale: 0.97 } : {}}
         className={`mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 border text-xs rounded-lg transition
           ${outOfStock
             ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
@@ -111,8 +114,8 @@ const CategoryCard = ({
       >
         <ShoppingCart size={12} />
         {outOfStock ? 'Out of Stock' : adding ? 'Adding…' : added ? '✓ Added' : err ? 'Try again' : 'Add to Cart'}
-      </button>
-    </div>
+      </motion.button>
+    </motion.div>
   );
 };
 

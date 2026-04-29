@@ -4,7 +4,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import MainLayout from '../layouts/MainLayout';
 import RatingSummary from '../components/RatingSummary';
 import OtherProductsLike from '../components/OtherProductsLike';
-import { products as productsApi, reviews as reviewsApi, wishlist as wishlistApi } from '../api/api';
+import { products as productsApi, reviews as reviewsApi, wishlist as wishlistApi } from '../api/api'; // reviewsApi used in handleReviewSubmit
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -47,14 +47,13 @@ const ProductPage = () => {
   useEffect(() => {
     if (!id) return;
     setLoading(true);
-    Promise.all([
-      productsApi.getById(id),
-      reviewsApi.getAll({ pageNumber: 1, pageSize: 200 }).catch(() => null),
-    ])
-      .then(([prod, allReviews]) => {
+    productsApi.getById(id)
+      .then(prod => {
         setProduct(prod);
-        const reviewItems = allReviews?.items ?? allReviews ?? [];
-        setReviewList(reviewItems.filter(r => r.productId === Number(id)));
+        // Use reviews embedded in the product response (most reliable)
+        const raw = prod?.reviews;
+        const embedded = Array.isArray(raw) ? raw : (raw?.$values ?? []);
+        setReviewList(embedded);
       })
       .catch(err => setError(err.message))
       .finally(() => setLoading(false));
@@ -115,9 +114,10 @@ const ProductPage = () => {
   );
 
   const images = product.productImages ?? [];
-  const avgRating = reviewList.length
-    ? reviewList.reduce((s, r) => s + r.rating, 0) / reviewList.length
-    : 0;
+  const avgRating = parseFloat(product.averageRating)
+    || (reviewList.length
+      ? reviewList.reduce((s, r) => s + Number(r.rating), 0) / reviewList.length
+      : 0);
 
   const ratingDistribution = [5, 4, 3, 2, 1].map(r => ({
     rating: r,

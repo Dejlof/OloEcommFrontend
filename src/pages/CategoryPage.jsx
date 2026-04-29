@@ -205,19 +205,28 @@ const CategoryPage = () => {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
-            {productList.map(product => (
-              <CategoryCard
-                key={product.id}
-                productId={product.id}
-                ImgSource={product.productImages?.[0]?.url}
-                altname={product.name}
-                Name={product.name}
-                Price={`₦${Number(product.price).toLocaleString()}`}
-                rating={product.averageRating ?? 0}
-                totalRatings={product.reviews?.length ?? 0}
-                quantityInStock={product.quantityInStock ?? 0}
-              />
-            ))}
+            {productList.map(product => {
+              const reviews = Array.isArray(product.reviews)
+                ? product.reviews
+                : (product.reviews?.$values ?? []);
+              const rating = parseFloat(product.averageRating)
+                || (reviews.length
+                  ? reviews.reduce((s, r) => s + Number(r.rating), 0) / reviews.length
+                  : 0);
+              return (
+                <CategoryCard
+                  key={product.id}
+                  productId={product.id}
+                  ImgSource={product.productImages?.[0]?.url}
+                  altname={product.name}
+                  Name={product.name}
+                  Price={`₦${Number(product.price).toLocaleString()}`}
+                  rating={rating}
+                  totalRatings={reviews.length}
+                  quantityInStock={product.quantityInStock ?? 0}
+                />
+              );
+            })}
           </div>
         )}
 

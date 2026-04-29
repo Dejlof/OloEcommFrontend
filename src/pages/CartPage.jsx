@@ -92,7 +92,10 @@ const CartPage = () => {
                 {/* Top row on mobile: image + name/price + remove */}
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
-                    <span className="text-2xl">📦</span>
+                    {item.imageUrl
+                      ? <img src={item.imageUrl} alt={item.productAdded} className="w-full h-full object-cover" />
+                      : <span className="text-2xl">📦</span>
+                    }
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-green-900 truncate">{item.productAdded ?? `Product #${item.productId}`}</p>

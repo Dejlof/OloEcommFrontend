@@ -41,19 +41,28 @@ const OtherProductsLike = ({ currentProductId }) => {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-5">
-        {items.map(p => (
-          <CategoryCard
-            key={p.id}
-            product={p}
-            ImgSource={p.productImages?.[0]?.url}
-            altname={p.name}
-            Name={p.name}
-            Price={`₦${Number(p.price).toLocaleString()}`}
-            rating={p.averageRating ?? 0}
-            totalRatings={p.reviews?.length ?? 0}
-            productId={p.id}
-          />
-        ))}
+        {items.map(p => {
+          const reviews = Array.isArray(p.reviews)
+            ? p.reviews
+            : (p.reviews?.$values ?? []);
+          const rating = parseFloat(p.averageRating)
+            || (reviews.length
+              ? reviews.reduce((s, r) => s + Number(r.rating), 0) / reviews.length
+              : 0);
+          return (
+            <CategoryCard
+              key={p.id}
+              product={p}
+              ImgSource={p.productImages?.[0]?.url}
+              altname={p.name}
+              Name={p.name}
+              Price={`₦${Number(p.price).toLocaleString()}`}
+              rating={rating}
+              totalRatings={reviews.length}
+              productId={p.id}
+            />
+          );
+        })}
       </div>
     </div>
   );

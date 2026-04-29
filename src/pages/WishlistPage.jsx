@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import MainLayout from '../layouts/MainLayout';
-import { wishlist as wishlistApi } from '../api/api';
+import { wishlist as wishlistApi, products as productsApi } from '../api/api';
 import { useCart } from '../context/CartContext';
 import { Heart, Loader2, Trash2, ShoppingCart } from 'lucide-react';
 import Pagination from '../components/Pagination';
@@ -22,10 +22,28 @@ const WishlistPage = () => {
   useEffect(() => {
     setLoading(true);
     wishlistApi.getAll({ pageNumber: page, pageSize: PAGE_SIZE })
-      .then(data => {
-        setItems(data?.items ?? []);
+      .then(async data => {
+        const rawItems = data?.items ?? [];
         setTotalPages(data?.totalPages ?? 1);
         setTotalCount(data?.totalCount ?? 0);
+        // Enrich with product image and price
+        const enriched = await Promise.all(
+          rawItems.map(async item => {
+            const pid = item.productId ?? item.id;
+            if (!pid) return item;
+            try {
+              const product = await productsApi.getById(pid);
+              return {
+                ...item,
+                imageUrl: product?.productImages?.[0]?.url ?? null,
+                price: product?.price ?? null,
+              };
+            } catch {
+              return item;
+            }
+          })
+        );
+        setItems(enriched);
       })
       .catch(err => toast.error(err.message))
       .finally(() => setLoading(false));
@@ -77,8 +95,11 @@ const WishlistPage = () => {
               <div key={item.id}
                 className="flex items-center justify-between bg-white border border-gray-200 rounded-xl px-5 py-4 shadow-sm gap-4">
                 <div className="flex items-center gap-4 flex-1 min-w-0">
-                  <div className="w-14 h-14 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <span className="text-2xl">📦</span>
+                  <div className="w-14 h-14 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {item.imageUrl
+                      ? <img src={item.imageUrl} alt={item.wishlistItem} className="w-full h-full object-cover" />
+                      : <span className="text-2xl">📦</span>
+                    }
                   </div>
                   <div className="min-w-0">
                     <Link to={`/product/${item.productId ?? item.id}`}

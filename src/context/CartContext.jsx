@@ -18,18 +18,22 @@ export function CartProvider({ children }) {
     try {
       const data = await cartApi.getMine({ pageNumber: 1, pageSize: 100 });
       const cartItems = data?.items ?? data ?? [];
-      const withPrices = await Promise.all(
+      const withDetails = await Promise.all(
         cartItems.map(async item => {
-          if (item.price != null) return item;
+          if (item.price != null && item.imageUrl != null) return item;
           try {
             const product = await productsApi.getById(item.productId);
-            return { ...item, price: product?.price ?? 0 };
+            return {
+              ...item,
+              price: item.price ?? product?.price ?? 0,
+              imageUrl: item.imageUrl ?? product?.productImages?.[0]?.url ?? null,
+            };
           } catch {
-            return { ...item, price: 0 };
+            return { ...item, price: item.price ?? 0, imageUrl: null };
           }
         })
       );
-      setItems(withPrices);
+      setItems(withDetails);
     } catch {
       setItems([]);
     } finally {
