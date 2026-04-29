@@ -114,7 +114,7 @@ export const products = {
   },
 
   create: (categoryId, data) =>
-    apiFetch(`/api/product/category/${categoryId}`, { method: 'POST', body: JSON.stringify(data) }),
+    apiFetch(`/api/product/${categoryId}`, { method: 'POST', body: JSON.stringify(data) }),
 
   update: (id, data) =>
     apiFetch(`/api/product/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
