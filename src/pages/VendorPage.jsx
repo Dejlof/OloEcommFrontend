@@ -6,8 +6,9 @@ import { useAuth } from '../context/AuthContext';
 import {
   Package, Plus, Trash2, Edit2, Image, Loader2,
   ShoppingBag, AlertCircle, ClipboardList,
-  Truck, CheckCircle, XCircle, Star, BarChart2
+  Truck, CheckCircle, XCircle, Star, BarChart2,
 } from 'lucide-react';
+import VendorAnalyticsPanel from '../components/VendorAnalyticsPanel';
 import { toast } from 'react-toastify';
 import { confirmToast } from '../utils/confirmToast';
 import Pagination from '../components/Pagination';
@@ -382,10 +383,11 @@ const VendorPage = () => {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-xl w-fit">
+        <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-xl w-fit flex-wrap">
           {[
-            { key: 'products', label: 'Products', count: totalProducts },
-            { key: 'orders',   label: 'Orders',   count: totalOrders   },
+            { key: 'products',  label: 'Products',  count: totalProducts },
+            { key: 'orders',    label: 'Orders',    count: totalOrders   },
+            { key: 'analytics', label: 'Analytics', count: null          },
           ].map(tab => (
             <button
               key={tab.key}
@@ -396,11 +398,13 @@ const VendorPage = () => {
                   : 'text-gray-500 hover:text-gray-700'
               }`}>
               {tab.label}
-              <span className={`ml-2 px-1.5 py-0.5 rounded-md text-xs ${
-                activeTab === tab.key ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'
-              }`}>
-                {tab.count}
-              </span>
+              {tab.count !== null && (
+                <span className={`ml-2 px-1.5 py-0.5 rounded-md text-xs ${
+                  activeTab === tab.key ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'
+                }`}>
+                  {tab.count}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -553,6 +557,10 @@ const VendorPage = () => {
             )}
           </div>
         )}
+
+        {/* Analytics panel */}
+        {activeTab === 'analytics' && <VendorAnalyticsPanel />}
+
       </div>
 
       {/* Edit modal */}

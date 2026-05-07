@@ -9,8 +9,9 @@ import { toast } from 'react-toastify';
 import { confirmToast } from '../utils/confirmToast';
 import {
   Users, Tag, Trash2,
-  Edit2, Loader2, X, Shield, Truck, Search
+  Edit2, Loader2, X, Shield, Truck, Search, BarChart2,
 } from 'lucide-react';
+import AdminAnalyticsPanel from '../components/AdminAnalyticsPanel';
 
 const PAGE_SIZE = 10;
 
@@ -575,9 +576,10 @@ function DeliveryFeesPanel() {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 const TABS = [
-  { id: 'users',         label: 'Users',          icon: Users  },
-  { id: 'categories',    label: 'Categories',     icon: Tag    },
-  { id: 'deliveryfees',  label: 'Delivery Fees',  icon: Truck  },
+  { id: 'users',         label: 'Users',          icon: Users    },
+  { id: 'categories',    label: 'Categories',     icon: Tag      },
+  { id: 'deliveryfees',  label: 'Delivery Fees',  icon: Truck    },
+  { id: 'analytics',     label: 'Analytics',      icon: BarChart2 },
 ];
 
 const AdminPage = () => {
@@ -603,6 +605,7 @@ const AdminPage = () => {
         {activeTab === 'users'        && <UsersPanel />}
         {activeTab === 'categories'   && <CategoriesPanel />}
         {activeTab === 'deliveryfees' && <DeliveryFeesPanel />}
+        {activeTab === 'analytics'    && <AdminAnalyticsPanel />}
       </div>
     </MainLayout>
   );

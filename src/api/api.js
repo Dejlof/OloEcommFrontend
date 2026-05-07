@@ -235,6 +235,18 @@ export const deliveryfee = {
   delete:   (id)     => apiFetch(`/api/DeliveryFees/${id}`, { method: 'DELETE' }),
 };
 
+// ── Analytics ────────────────────────────────────────────────────────────────
+export const analytics = {
+  revenue:       (period = 'daily') => apiFetch(`/api/Analytics/revenue?period=${period}`),
+  funnel:        (days = 30)        => apiFetch(`/api/Analytics/funnel?days=${days}`),
+  topProducts:   (top = 10)         => apiFetch(`/api/Analytics/products/top?top=${top}`),
+  categories:    ()                 => apiFetch('/api/Analytics/categories'),
+  paymentHealth: ()                 => apiFetch('/api/Analytics/payments/health'),
+  userGrowth:    (days = 30)        => apiFetch(`/api/Analytics/users/growth?days=${days}`),
+  vendorMe:      ()                 => apiFetch('/api/Analytics/vendor/me'),
+  vendorById:    (vendorId)         => apiFetch(`/api/Analytics/vendor/${vendorId}`),
+};
+
 // ── Reviews ───────────────────────────────────────────────────────────────────
 export const reviews = {
   getAll: (params = {}) => {
