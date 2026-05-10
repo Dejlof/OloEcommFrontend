@@ -78,6 +78,7 @@ export const auth = {
   login:          (data) => apiFetch('/api/account/login',    { method: 'POST', body: JSON.stringify(data) }, false),
   logout:         ()     => apiFetch('/api/account/logout',   { method: 'POST' }),
   refresh:        ()     => apiFetch('/api/account/refresh',  { method: 'POST' }),
+  googleLogin:    (idToken) => apiFetch('/api/account/google-login', { method: 'POST', body: JSON.stringify({ idToken }) }, false),
   forgotPassword: (email) => apiFetch('/api/account/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
   resetPassword:  (data) => apiFetch('/api/account/reset-password',   { method: 'POST', body: JSON.stringify(data) }),
   changePassword: (data) => apiFetch('/api/account/change-password',  { method: 'POST', body: JSON.stringify(data) }),
@@ -233,6 +234,15 @@ export const deliveryfee = {
   create:   (data)   => apiFetch('/api/DeliveryFees',    { method: 'POST', body: JSON.stringify(data) }),
   update:   (id, d)  => apiFetch(`/api/DeliveryFees/${id}`, { method: 'PUT',  body: JSON.stringify(d) }),
   delete:   (id)     => apiFetch(`/api/DeliveryFees/${id}`, { method: 'DELETE' }),
+};
+
+// ── Support Chat ──────────────────────────────────────────────────────────────
+export const support = {
+  chat: (message, sessionId = '', language = 'en') =>
+    apiFetch('/api/support/chat', {
+      method: 'POST',
+      body: JSON.stringify({ message, sessionId, language }),
+    }),
 };
 
 // ── Analytics ────────────────────────────────────────────────────────────────

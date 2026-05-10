@@ -1,5 +1,6 @@
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
+import ChatWidget from '../components/ChatWidget'
 
 const MainLayout = ({ children }) => {
   return (
@@ -9,6 +10,7 @@ const MainLayout = ({ children }) => {
         {children}
       </main>
       <Footer />
+      <ChatWidget />
     </div>
   )
 }

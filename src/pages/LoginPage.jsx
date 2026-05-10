@@ -1,5 +1,5 @@
 // src/pages/LoginPage.jsx
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import MainLayout from '../layouts/MainLayout';
@@ -9,8 +9,10 @@ import Header from '../components/Header';
 import Button from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
 const LoginPage = () => {
-  const { login } = useAuth();
+  const { login, googleLogin } = useAuth();
   const navigate  = useNavigate();
   const location  = useLocation();
   const from      = location.state?.from?.pathname ?? '/';
@@ -18,6 +20,27 @@ const LoginPage = () => {
   const [form, setForm]             = useState({ login: '', password: '' });
   const [showPassword, setShow]     = useState(false);
   const [loading, setLoading]       = useState(false);
+  const googleBtnRef                = useRef(null);
+
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID || !window.google) return;
+    window.google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: async ({ credential }) => {
+        try {
+          await googleLogin(credential);
+          navigate(from, { replace: true });
+        } catch (err) {
+          toast.error(err.message ?? 'Google sign-in failed.');
+        }
+      },
+    });
+    window.google.accounts.id.renderButton(googleBtnRef.current, {
+      theme: 'outline',
+      size: 'large',
+      width: googleBtnRef.current?.offsetWidth,
+    });
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const handle = (e) => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
 
@@ -81,6 +104,17 @@ const LoginPage = () => {
               {loading ? 'Logging in…' : 'Log In'}
             </Button>
           </div>
+
+          {GOOGLE_CLIENT_ID && (
+            <>
+              <div className="flex items-center gap-3 py-4">
+                <hr className="flex-1 border-gray-200" />
+                <span className="text-xs text-gray-400">or</span>
+                <hr className="flex-1 border-gray-200" />
+              </div>
+              <div ref={googleBtnRef} className="w-full flex justify-center" />
+            </>
+          )}
 
           <p className="text-center pt-4 text-gray-500">
             Don't have an account?{' '}
