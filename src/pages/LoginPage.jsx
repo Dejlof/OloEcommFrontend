@@ -52,8 +52,12 @@ const LoginPage = () => {
     }
     setLoading(true);
     try {
-      await login(form);
-      navigate(from, { replace: true });
+      const data = await login(form);
+      if (data?.mustChangePassword) {
+        navigate('/force-change-password', { replace: true });
+      } else {
+        navigate(from, { replace: true });
+      }
     } catch (err) {
       if (err.status === 429)
         toast.error('Account temporarily locked. Please try again later.');

@@ -23,6 +23,7 @@ function tokenIsExpired(token) {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);       // { email, username, firstName, lastName, role, sub }
   const [loading, setLoading] = useState(true); // true until initial token check done
+  const [mustChangePassword, setMustChangePassword] = useState(false);
 
   // ── Hydrate from stored token on mount ───────────────────────────────────────
   useEffect(() => {
@@ -89,6 +90,7 @@ export function AuthProvider({ children }) {
       phoneNumber: profile?.phoneNumber ?? '',
       role:        profile?.role        ?? claims['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ?? claims.role,
     });
+    if (data.mustChangePassword) setMustChangePassword(true);
     return data;
   }, []);
 
@@ -110,11 +112,31 @@ export function AuthProvider({ children }) {
     return data;
   }, []);
 
+  // ── Refresh token after role upgrade (e.g. buyer → vendor) ──────────────────
+  const refreshAfterUpgrade = useCallback(async () => {
+    const data = await authApi.refresh();
+    sessionStorage.setItem('accessToken', data.accessToken);
+    const claims = decodeToken(data.accessToken);
+    const profile = await authApi.getUser(claims.email).catch(() => null);
+    setUser({
+      id:          claims.sub,
+      email:       profile?.email       ?? claims.email,
+      username:    profile?.userName    ?? claims.username,
+      firstName:   profile?.firstName   ?? '',
+      lastName:    profile?.lastName    ?? '',
+      phoneNumber: profile?.phoneNumber ?? '',
+      role:        profile?.role        ?? claims['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ?? claims.role,
+    });
+  }, []);
+
+  const clearMustChangePassword = useCallback(() => setMustChangePassword(false), []);
+
   // ── Logout ────────────────────────────────────────────────────────────────────
   const logout = useCallback(async () => {
     try { await authApi.logout(); } catch {}
     sessionStorage.removeItem('accessToken');
     setUser(null);
+    setMustChangePassword(false);
   }, []);
 
   const isAuthenticated = !!user;
@@ -126,7 +148,8 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{
       user, loading,
       isAuthenticated, isVendor, isAdmin, isBuyer,
-      login, googleLogin, logout, register,
+      login, googleLogin, logout, register, refreshAfterUpgrade,
+      mustChangePassword, clearMustChangePassword,
     }}>
       {children}
     </AuthContext.Provider>

@@ -7,13 +7,17 @@ import { useAuth } from '../context/AuthContext';
  * Saves the attempted URL so we can redirect back after login.
  */
 export function ProtectedRoute({ children }) {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, mustChangePassword } = useAuth();
   const location = useLocation();
 
   if (loading) return <div className="flex items-center justify-center h-screen text-green-900">Loading…</div>;
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (mustChangePassword && location.pathname !== '/force-change-password') {
+    return <Navigate to="/force-change-password" replace />;
   }
 
   return children;

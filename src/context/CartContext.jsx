@@ -44,11 +44,11 @@ export function CartProvider({ children }) {
   useEffect(() => { fetchCart(); }, [fetchCart]);
 
   // ── Add to cart ───────────────────────────────────────────────────────────────
-  const addToCart = useCallback(async (productId, quantity = 1) => {
+  const addToCart = useCallback(async (productId, quantity = 1, variantId) => {
     setError(null);
     try {
-      await cartApi.add(productId, quantity);
-      await fetchCart(); // re-sync from server
+      await cartApi.add(productId, quantity, variantId);
+      await fetchCart();
     } catch (err) {
       setError(err.message);
       throw err;

@@ -24,6 +24,8 @@ import AddProductImages    from './pages/AddProductImages';
 import VendorPage          from './pages/VendorPage';
 import VendorProfilePage   from './pages/VendorProfilePage';
 import AdminPage           from './pages/AdminPage';
+import VendorRegisterPage         from './pages/VendorRegisterPage';
+import ForceChangePasswordPage    from './pages/ForceChangePasswordPage';
 
 function App() {
   return (
@@ -48,16 +50,19 @@ function App() {
           <Route path="/register"       element={<RegisterPage />} />
           <Route path="/forgotpassword" element={<ForgotPassword />} />
           <Route path="/resetpassword"  element={<ResetPassword />} />
-          <Route path="/payment/callback" element={<PaymentCallbackPage />} />
+        
         
 
           {/* ── Authenticated ─────────────────────────────── */}
-          <Route path="/account"  element={<ProtectedRoute><Account /></ProtectedRoute>} />
+          <Route path="/force-change-password" element={<ProtectedRoute><ForceChangePasswordPage /></ProtectedRoute>} />
+          <Route path="/account"        element={<ProtectedRoute><Account /></ProtectedRoute>} />
+          <Route path="/vendor/register" element={<ProtectedRoute><VendorRegisterPage /></ProtectedRoute>} />
           <Route path="/cart"     element={<ProtectedRoute><CartPage /></ProtectedRoute>} />
           <Route path="/orders"   element={<ProtectedRoute><OrdersPage /></ProtectedRoute>} />
           <Route path="/wishlist" element={<ProtectedRoute><WishlistPage /></ProtectedRoute>} />
           <Route path="/checkout/:orderId" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
-          <Route path="/vendor/profile/:email" element={<ProtectedRoute><VendorProfilePage /></ProtectedRoute>} />
+          <Route path="/vendor/profile/:vendorId" element={<ProtectedRoute><VendorProfilePage /></ProtectedRoute>} />
+          <Route path="/payment/callback" element={<ProtectedRoute><PaymentCallbackPage /></ProtectedRoute>} />
 
           {/* ── Vendor dashboard (Vendor OR Admin) ────────── */}
           <Route path="/vendor"

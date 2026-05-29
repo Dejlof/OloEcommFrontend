@@ -89,6 +89,33 @@ export const auth = {
   },
 };
 
+// ── Vendor ────────────────────────────────────────────────────────────────────
+export const vendor = {
+  // Admin
+  getAll:   (params = {}) => { const q = new URLSearchParams(params).toString(); return apiFetch(`/api/vendor${q ? `?${q}` : ''}`); },
+  getById:  (id)          => apiFetch(`/api/vendor/${id}`),
+  updateStatus:    (id, status, rejectionReason = null) =>
+    apiFetch(`/api/vendor/${id}/status`, { method: 'PUT', body: JSON.stringify({ status, rejectionReason }) }),
+  verifyDocument:  (documentId, approved, rejectionReason = null) =>
+    apiFetch(`/api/vendor/documents/${documentId}/verify`, { method: 'POST', body: JSON.stringify({ approved, rejectionReason }) }),
+  // Vendor-self
+  register:   (data)              => apiFetch('/api/vendor/register', { method: 'POST', body: JSON.stringify(data) }),
+  getMine:    ()                  => apiFetch('/api/vendor/mine'),
+  update:     (data)              => apiFetch('/api/vendor', { method: 'PUT', body: JSON.stringify(data) }),
+  getTeam:    ()                  => apiFetch('/api/vendor/team'),
+  uploadLogo: (vendorId, formData) => apiFetch(`/api/vendor/${vendorId}/logo`, { method: 'POST', body: formData, headers: {} }),
+  addMember:    (vendorId, data)     => apiFetch(`/api/vendor/${vendorId}/members`, { method: 'POST', body: JSON.stringify(data) }),
+  removeMember:     (vendorId, memberId)       => apiFetch(`/api/vendor/${vendorId}/members/${memberId}`, { method: 'DELETE' }),
+  updateMemberRole: (vendorId, memberId, role) => apiFetch(`/api/vendor/${vendorId}/members/${memberId}/role`, { method: 'PATCH', body: JSON.stringify({ role }) }),
+  uploadDocument:  (vendorId, formData) => apiFetch(`/api/vendor/${vendorId}/documents`, { method: 'POST', body: formData }),
+  getBanks:        ()                   => apiFetch('/api/vendor/banks'),
+  resolveAccount:  (accountNumber, bankCode) =>
+    apiFetch(`/api/vendor/bank-accounts/resolve?accountNumber=${encodeURIComponent(accountNumber)}&bankCode=${encodeURIComponent(bankCode)}`),
+  addBankAccount:     (vendorId, data)              => apiFetch(`/api/vendor/${vendorId}/bank-accounts`, { method: 'POST', body: JSON.stringify(data) }),
+  setPrimaryAccount:  (vendorId, accountId)         => apiFetch(`/api/vendor/${vendorId}/bank-accounts/${accountId}/set-primary`, { method: 'PUT' }),
+  deleteBankAccount:  (vendorId, accountId)         => apiFetch(`/api/vendor/${vendorId}/bank-accounts/${accountId}`, { method: 'DELETE' }),
+};
+
 // ── Products ──────────────────────────────────────────────────────────────────
 export const products = {
   // General listing with search/sort/price/page params
@@ -109,9 +136,9 @@ export const products = {
     const q = new URLSearchParams(params).toString();
     return apiFetch(`/api/product/GetMyProducts${q ? `?${q}` : ''}`);
   },
-  getByVendor: (username, params = {}) => {
-    const q = new URLSearchParams({ username, ...params }).toString();
-    return apiFetch(`/api/Product/GetVendorProducts?${q}`);
+  getByVendor: (vendorId, params = {}) => {
+    const q = new URLSearchParams(params).toString();
+    return apiFetch(`/api/product/GetVendorProducts/${vendorId}${q ? `?${q}` : ''}`);
   },
 
   create: (categoryId, data) =>
@@ -122,6 +149,19 @@ export const products = {
 
   delete:     (id) => apiFetch(`/api/product/${id}`,      { method: 'DELETE' }),
   deleteMine: (id) => apiFetch(`/api/product/mine/${id}`, { method: 'DELETE' }),
+
+  getVariants:  (productId)              => apiFetch(`/api/product/${productId}/variants`),
+  addVariant:   (productId, data)        =>
+    apiFetch(`/api/product/${productId}/variants`, { method: 'POST', body: JSON.stringify(data) }),
+  updateVariant: (productId, variantId, data) =>
+    apiFetch(`/api/product/${productId}/variants/${variantId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteVariant: (productId, variantId) =>
+    apiFetch(`/api/product/${productId}/variants/${variantId}`, { method: 'DELETE' }),
+
+  submit:        (id)         => apiFetch(`/api/product/${id}/submit`,         { method: 'POST' }),
+  approve:       (id)         => apiFetch(`/api/product/${id}/approve`,        { method: 'POST' }),
+  reject:        (id, reason) => apiFetch(`/api/product/${id}/reject`,         { method: 'POST', body: JSON.stringify({ reason }) }),
+  requestDelete: (id)         => apiFetch(`/api/product/${id}/request-delete`, { method: 'DELETE' }),
 };
 
 // ── Product Images ────────────────────────────────────────────────────────────
@@ -158,9 +198,9 @@ export const cart = {
     return apiFetch(`/api/ShoppingCart/GetMyCarts${q ? `?${q}` : ''}`);
   },
 
-  add: (productId, quantity) =>
+  add: (productId, quantity, variantId) =>
     apiFetch(`/api/ShoppingCart/CreateMyCartItem/${productId}`, {
-      method: 'POST', body: JSON.stringify({ quantity }),
+      method: 'POST', body: JSON.stringify({ quantity, ...(variantId ? { variantId } : {}) }),
     }),
 
   update: (productId, quantity) =>

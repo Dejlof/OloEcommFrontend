@@ -8,7 +8,7 @@ import { addresses as addressesApi, auth as authApi } from '../api/api';
 import { STATES, getCities } from '../utils/nigerianLocations';
 import {
   User, ShoppingBag, Heart, MapPin, Lock,
-  LogOut, Plus, Trash2, Edit2, Loader2
+  LogOut, Plus, Trash2, Edit2, Loader2, Store,
 } from 'lucide-react';
 
 // ── Address form ──────────────────────────────────────────────────────────────
@@ -280,8 +280,15 @@ const Account = () => {
                 </button>
               ))}
 
+              {user?.role === 'Buyer' && (
+                <button onClick={() => navigate('/vendor/register')}
+                  className="w-full flex items-center gap-3 px-5 py-2.5 text-sm text-orange-600 hover:bg-orange-50 transition mt-2 border-t border-gray-100">
+                  <Store size={16} /> Become a Vendor
+                </button>
+              )}
+
               <button onClick={handleLogout}
-                className="w-full flex items-center gap-3 px-5 py-2.5 text-sm text-red-500 hover:bg-red-50 transition mt-2 border-t border-gray-100">
+                className={`w-full flex items-center gap-3 px-5 py-2.5 text-sm text-red-500 hover:bg-red-50 transition border-t border-gray-100 ${user?.role === 'Buyer' ? '' : 'mt-2'}`}>
                 <LogOut size={16} /> Log Out
               </button>
             </nav>
@@ -295,10 +302,10 @@ const Account = () => {
               <h1 className="text-xl font-bold text-green-900 mb-6">Account Overview</h1>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[
-                  { label: 'My Orders',    desc: 'Track and manage your orders',  tab: 'orders',    icon: ShoppingBag },
-                  { label: 'Address Book', desc: 'Manage delivery addresses',      tab: 'addresses', icon: MapPin },
-                  { label: 'Wishlist',     desc: 'Items you\'ve saved',           tab: 'wishlist',  icon: Heart },
-                  { label: 'Password',     desc: 'Update your password',           tab: 'password',  icon: Lock },
+                  { label: 'My Orders',    desc: 'Track and manage your orders', tab: 'orders',    icon: ShoppingBag },
+                  { label: 'Address Book', desc: 'Manage delivery addresses',     tab: 'addresses', icon: MapPin },
+                  { label: 'Wishlist',     desc: 'Items you\'ve saved',          tab: 'wishlist',  icon: Heart },
+                  { label: 'Password',     desc: 'Update your password',          tab: 'password',  icon: Lock },
                 ].map(item => (
                   <button key={item.tab} onClick={() => setActiveTab(item.tab)}
                     className="text-left p-5 border border-gray-200 rounded-xl hover:border-orange-300 hover:bg-orange-50 transition group">
@@ -307,6 +314,15 @@ const Account = () => {
                     <p className="text-xs text-gray-400 mt-0.5">{item.desc}</p>
                   </button>
                 ))}
+
+                {user?.role === 'Buyer' && (
+                  <button onClick={() => navigate('/vendor/register')}
+                    className="text-left p-5 border border-orange-200 rounded-xl hover:border-orange-400 hover:bg-orange-50 transition group">
+                    <Store size={20} className="text-orange-400 mb-2 group-hover:text-orange-500" />
+                    <p className="font-semibold text-green-900 text-sm">Become a Vendor</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Register your business and start selling</p>
+                  </button>
+                )}
               </div>
             </div>
           )}

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import MainLayout from '../layouts/MainLayout';
 import Pagination from '../components/Pagination';
-import { auth, products as productsApi } from '../api/api';
+import { vendor as vendorApi, products as productsApi } from '../api/api';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faStar, faStarHalfAlt } from '@fortawesome/free-solid-svg-icons';
 import { ArrowLeft, Loader2, Package, Star, BarChart2, ShoppingBag } from 'lucide-react';
@@ -82,32 +82,31 @@ function ProductCard({ product }) {
 }
 
 const VendorProfilePage = () => {
-  const { email } = useParams();
-  const navigate  = useNavigate();
-  const decodedEmail = decodeURIComponent(email);
+  const { vendorId } = useParams();
+  const navigate     = useNavigate();
 
-  const [vendor,       setVendor]       = useState(null);
-  const [products,     setProducts]     = useState([]);
-  const [totalCount,   setTotalCount]   = useState(0);
-  const [totalPages,   setTotalPages]   = useState(1);
-  const [page,         setPage]         = useState(1);
-  const [loading,      setLoading]      = useState(true);
-  const [prodsLoading, setProdsLoading] = useState(false);
-  const [error,        setError]        = useState('');
+  const [vendor,        setVendor]        = useState(null);
+  const [products,      setProducts]      = useState([]);
+  const [totalCount,    setTotalCount]    = useState(0);
+  const [totalPages,    setTotalPages]    = useState(1);
+  const [page,          setPage]          = useState(1);
+  const [loading,       setLoading]       = useState(true);
+  const [prodsLoading,  setProdsLoading]  = useState(false);
+  const [error,         setError]         = useState('');
   const [statsProducts, setStatsProducts] = useState([]);
 
   // Fetch vendor info once
   useEffect(() => {
-    auth.getUser(decodedEmail)
+    vendorApi.getById(vendorId)
       .then(data => setVendor(data))
       .catch(err => setError(err.message))
       .finally(() => setLoading(false));
-  }, [decodedEmail]);
+  }, [vendorId]);
 
-  // Fetch vendor products when page changes (table display)
+  // Fetch vendor products when page changes
   useEffect(() => {
     setProdsLoading(true);
-    productsApi.getByVendor(decodedEmail, { pageNumber: page, pageSize: PAGE_SIZE })
+    productsApi.getByVendor(vendorId, { pageNumber: page, pageSize: PAGE_SIZE })
       .then(data => {
         setProducts(data?.items ?? []);
         setTotalCount(data?.totalCount ?? 0);
@@ -115,14 +114,14 @@ const VendorProfilePage = () => {
       })
       .catch(() => {})
       .finally(() => setProdsLoading(false));
-  }, [decodedEmail, page]);
+  }, [vendorId, page]);
 
   // Fetch ALL products once for accurate stats
   useEffect(() => {
-    productsApi.getByVendor(decodedEmail, { pageNumber: 1, pageSize: 500 })
+    productsApi.getByVendor(vendorId, { pageNumber: 1, pageSize: 500 })
       .then(data => setStatsProducts(data?.items ?? []))
       .catch(() => {});
-  }, [decodedEmail]);
+  }, [vendorId]);
 
   // Computed stats from full dataset, not just current page
   const allReviews   = statsProducts.flatMap(p => p.reviews ?? []);
@@ -145,15 +144,8 @@ const VendorProfilePage = () => {
     </MainLayout>
   );
 
-  const displayName = vendor
-    ? [vendor.firstName, vendor.lastName].filter(Boolean).join(' ') || vendor.username || decodedEmail
-    : decodedEmail;
-
-  const initials = displayName
-    .split(' ')
-    .slice(0, 2)
-    .map(w => w[0]?.toUpperCase())
-    .join('');
+  const businessName = vendor?.businessName ?? vendor?.vendorBusinessName ?? `Vendor #${vendorId}`;
+  const initials     = businessName.split(' ').slice(0, 2).map(w => w[0]?.toUpperCase()).join('');
 
   return (
     <MainLayout>
@@ -169,14 +161,21 @@ const VendorProfilePage = () => {
 
         {/* Vendor header */}
         <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 mb-8 flex flex-col sm:flex-row items-start sm:items-center gap-5">
-          <div className="w-16 h-16 rounded-full bg-green-900 flex items-center justify-center text-orange-100 text-2xl font-bold flex-shrink-0">
-            {initials || '?'}
-          </div>
+          {vendor?.logoUrl ? (
+            <img src={vendor.logoUrl} alt={businessName}
+              className="w-16 h-16 rounded-full object-cover flex-shrink-0 border border-gray-200" />
+          ) : (
+            <div className="w-16 h-16 rounded-full bg-green-900 flex items-center justify-center text-orange-100 text-2xl font-bold flex-shrink-0">
+              {initials || '?'}
+            </div>
+          )}
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-bold text-green-900">{displayName}</h1>
-            <p className="text-sm text-gray-500">{decodedEmail}</p>
-            {vendor?.username && vendor.username !== displayName && (
-              <p className="text-xs text-gray-400 mt-0.5">@{vendor.username}</p>
+            <h1 className="text-xl font-bold text-green-900">{businessName}</h1>
+            {vendor?.businessEmail && (
+              <p className="text-sm text-gray-500 mt-0.5">{vendor.businessEmail}</p>
+            )}
+            {vendor?.businessAddress && (
+              <p className="text-xs text-gray-400 mt-0.5">{vendor.businessAddress}</p>
             )}
           </div>
         </div>

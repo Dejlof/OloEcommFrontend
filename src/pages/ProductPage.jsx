@@ -35,6 +35,7 @@ const ProductPage = () => {
   const [error, setError]             = useState('');
   const [qty, setQty]                 = useState(1);
   const [activeImg, setActiveImg]     = useState(0);
+  const [selectedVariant, setSelectedVariant] = useState(null);
   const [cartMsg, setCartMsg]         = useState('');
   const [cartLoading, setCartLoading] = useState(false);
   const [wishlisted, setWishlisted]   = useState(false);
@@ -61,10 +62,11 @@ const ProductPage = () => {
 
   const handleAddToCart = async () => {
     if (!isAuthenticated) { navigate('/login'); return; }
+    if (hasVariants && !selectedVariant) { setCartMsg('Please select a variant.'); return; }
     setCartLoading(true);
     setCartMsg('');
     try {
-      await addToCart(Number(id), qty);
+      await addToCart(Number(id), qty, selectedVariant?.id);
       setCartMsg('Added to cart!');
       setTimeout(() => setCartMsg(''), 2500);
     } catch (err) {
@@ -113,7 +115,16 @@ const ProductPage = () => {
     </MainLayout>
   );
 
-  const images = product.productImages ?? [];
+  const images      = product.productImages ?? [];
+  const variants    = product.variants ?? [];
+  const hasVariants = variants.length > 0;
+  const avgVariantPrice = hasVariants
+    ? variants.reduce((s, v) => s + (v.priceOverride ?? 0), 0) / variants.length
+    : 0;
+  const displayPrice = selectedVariant?.priceOverride ?? (hasVariants ? avgVariantPrice : product.price);
+  const displayStock = selectedVariant?.quantityInStock ?? product.quantityInStock;
+  const variantLabel = v => [v.color, v.size].filter(Boolean).join(' / ') || v.sku || `#${v.id}`;
+
   const avgRating = parseFloat(product.averageRating)
     || (reviewList.length
       ? reviewList.reduce((s, r) => s + Number(r.rating), 0) / reviewList.length
@@ -165,11 +176,40 @@ const ProductPage = () => {
             </div>
             <p className="text-gray-500 text-sm mb-4 leading-relaxed">{product.description}</p>
 
+            {/* Variant selector */}
+            {hasVariants && (
+              <div className="mb-5">
+                <p className="text-xs text-gray-500 uppercase tracking-widest mb-2">Select Variant</p>
+                <div className="flex flex-wrap gap-2">
+                  {variants.map(v => (
+                    <button
+                      key={v.id}
+                      onClick={() => { setSelectedVariant(v); setQty(1); }}
+                      className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition ${
+                        selectedVariant?.id === v.id
+                          ? 'border-green-900 bg-green-900 text-orange-100'
+                          : 'border-gray-300 text-green-900 hover:border-green-700'
+                      } ${v.quantityInStock === 0 ? 'opacity-40 cursor-not-allowed' : ''}`}
+                      disabled={v.quantityInStock === 0}
+                    >
+                      {variantLabel(v)}
+                      {v.priceOverride && (
+                        <span className="ml-1.5 text-xs opacity-75">
+                          ₦{Number(v.priceOverride).toLocaleString()}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="flex items-baseline gap-3 mb-5">
               <span className="text-2xl font-bold text-green-900">
-                ₦{Number(product.price).toLocaleString()}
+                {hasVariants && !selectedVariant && <span className="text-base font-normal text-gray-400 mr-1">avg</span>}
+                ₦{Number(displayPrice).toLocaleString()}
               </span>
-              {product.discountPrice && product.discountPrice < product.price && (
+              {!hasVariants && product.discountPrice && product.discountPrice < product.price && (
                 <span className="text-sm line-through text-gray-400">
                   ₦{Number(product.discountPrice).toLocaleString()}
                 </span>
@@ -177,10 +217,8 @@ const ProductPage = () => {
             </div>
 
             <p className="text-sm mb-5">
-              <span className={product.quantityInStock > 0 ? 'text-green-600' : 'text-red-500'}>
-                {product.quantityInStock > 0
-                  ? `${product.quantityInStock} in stock`
-                  : 'Out of stock'}
+              <span className={displayStock > 0 ? 'text-green-600' : 'text-red-500'}>
+                {displayStock > 0 ? `${displayStock} in stock` : 'Out of stock'}
               </span>
             </p>
 
@@ -190,16 +228,16 @@ const ProductPage = () => {
                 <button onClick={() => setQty(q => Math.max(1, q - 1))}
                   className="hover:text-orange-500 text-lg font-bold w-5 text-center">−</button>
                 <span className="w-6 text-center font-medium">{qty}</span>
-                <button onClick={() => setQty(q => Math.min(product.quantityInStock, q + 1))}
+                <button onClick={() => setQty(q => Math.min(displayStock, q + 1))}
                   className="hover:text-orange-500 text-lg font-bold w-5 text-center">+</button>
               </div>
 
               <button
-                disabled={cartLoading || product.quantityInStock === 0}
+                disabled={cartLoading || displayStock === 0 || (hasVariants && !selectedVariant)}
                 onClick={handleAddToCart}
                 className="flex items-center gap-2 px-5 py-2.5 bg-orange-300 text-green-900 rounded-xl font-medium text-sm hover:bg-orange-400 transition disabled:opacity-50">
                 <ShoppingCart size={16} />
-                {cartLoading ? 'Adding…' : 'Add to Cart'}
+                {cartLoading ? 'Adding…' : hasVariants && !selectedVariant ? 'Select a variant' : 'Add to Cart'}
               </button>
 
               <button onClick={handleWishlist}
@@ -214,15 +252,21 @@ const ProductPage = () => {
               </p>
             )}
 
-            {product.createdBy && (
+            {(product.vendorBusinessName || product.createdBy) && (
               <p className="text-xs text-gray-400 mt-3">
                 Sold by{' '}
-                <Link
-                  to={`/vendor/profile/${encodeURIComponent(product.createdBy)}`}
-                  className="font-medium text-green-800 hover:text-orange-500 underline transition"
-                >
-                  {product.createdBy}
-                </Link>
+                {product.vendorId ? (
+                  <Link
+                    to={`/vendor/profile/${product.vendorId}`}
+                    className="font-medium text-green-800 hover:text-orange-500 underline transition"
+                  >
+                    {product.vendorBusinessName || product.createdBy}
+                  </Link>
+                ) : (
+                  <span className="font-medium text-green-800">
+                    {product.vendorBusinessName || product.createdBy}
+                  </span>
+                )}
               </p>
             )}
           </div>

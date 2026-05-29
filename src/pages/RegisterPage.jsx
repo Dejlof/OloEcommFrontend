@@ -15,7 +15,7 @@ const RegisterPage = () => {
 
   const [form, setForm] = useState({
     firstName: '', lastName: '', email: '',
-    phoneNumber: '', role: '', password: '', confirmPassword: '',
+    phoneNumber: '', password: '', confirmPassword: '',
   });
   const [showPassword, setShow] = useState(false);
   const [loading, setLoading]   = useState(false);
@@ -34,19 +34,15 @@ const RegisterPage = () => {
     if (form.password.length < 10) {
       toast.error('Password must be at least 10 characters.'); return;
     }
-    if (!['Buyer', 'Vendor'].includes(form.role)) {
-      toast.error('Please select a valid role.'); return;
-    }
 
     setLoading(true);
     try {
       await register({
-        firstName:   form.firstName,
-        lastName:    form.lastName,
-        email:       form.email,
-        phoneNumber: form.phoneNumber,
-        role:        form.role,
-        password:    form.password,
+        firstName:       form.firstName,
+        lastName:        form.lastName,
+        email:           form.email,
+        phoneNumber:     form.phoneNumber,
+        password:        form.password,
         confirmPassword: form.confirmPassword,
       });
       toast.success('Registration successful! Redirecting to login…');
@@ -76,16 +72,6 @@ const RegisterPage = () => {
 
           <div className="pt-4"><Label label="Phone Number" />
             <Input name="phoneNumber" value={form.phoneNumber} onChange={handle} placeholder="Your phone number" type="tel" /></div>
-
-          <div className="pt-4">
-            <Label label="Role" />
-            <select name="role" value={form.role} onChange={handle}
-              className="border py-2 pl-3 pr-3 w-full text-green-900 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="">-- Select role --</option>
-              <option value="Buyer">Buyer</option>
-              <option value="Vendor">Vendor</option>
-            </select>
-          </div>
 
           <div className="pt-4"><Label label="Password" />
             <div className="relative">

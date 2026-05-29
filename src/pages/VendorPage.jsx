@@ -1,17 +1,80 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import MainLayout from '../layouts/MainLayout';
-import { products as productsApi, categories as categoriesApi, orders as ordersApi } from '../api/api';
+import { products as productsApi, categories as categoriesApi, orders as ordersApi, vendor as vendorApi } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 import {
   Package, Plus, Trash2, Edit2, Image, Loader2,
   ShoppingBag, AlertCircle, ClipboardList,
-  Truck, CheckCircle, XCircle, Star, BarChart2,
+  Truck, CheckCircle, XCircle, Star, BarChart2, Layers, Send,
 } from 'lucide-react';
-import VendorAnalyticsPanel from '../components/VendorAnalyticsPanel';
+import VendorAnalyticsPanel  from '../components/VendorAnalyticsPanel';
+import VendorSettingsPanel   from '../components/VendorSettingsPanel';
 import { toast } from 'react-toastify';
 import { confirmToast } from '../utils/confirmToast';
 import Pagination from '../components/Pagination';
+
+// ── Product status (mirrors backend ProductStatus enum) ───────────────────────
+// Draft=0  PendingApproval=1  Active=2  Rejected=3  PendingDeletion=4
+const PRODUCT_STATUS = {
+  0: { label: 'Draft',            colour: 'bg-gray-100 text-gray-600'      },
+  1: { label: 'Pending Approval', colour: 'bg-yellow-100 text-yellow-700'  },
+  2: { label: 'Active',           colour: 'bg-green-100 text-green-700'    },
+  3: { label: 'Rejected',         colour: 'bg-red-100 text-red-600'        },
+  4: { label: 'Pending Deletion', colour: 'bg-orange-100 text-orange-600'  },
+};
+
+// Normalise: API may return integer OR string enum name
+const STATUS_STR_TO_NUM = { Draft: 0, PendingApproval: 1, Active: 2, Rejected: 3, PendingDeletion: 4 };
+const toStatusNum = s => typeof s === 'number' ? s : (STATUS_STR_TO_NUM[s] ?? -1);
+
+function ProductStatusBadge({ status }) {
+  const n   = toStatusNum(status);
+  const cfg = PRODUCT_STATUS[n] ?? { label: String(status ?? '—'), colour: 'bg-gray-100 text-gray-500' };
+  return (
+    <span className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${cfg.colour}`}>
+      {cfg.label}
+    </span>
+  );
+}
+
+// ── Reject reason modal ───────────────────────────────────────────────────────
+function RejectModal({ title, onConfirm, onClose }) {
+  const [reason,  setReason]  = useState('');
+  const [acting,  setActing]  = useState(false);
+
+  const handleConfirm = async () => {
+    setActing(true);
+    await onConfirm(reason.trim() || undefined);
+    setActing(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+        <h3 className="font-semibold text-green-900">{title}</h3>
+        <textarea
+          value={reason}
+          onChange={e => setReason(e.target.value)}
+          placeholder="Reason (optional)…"
+          rows={3}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-green-900 focus:outline-none focus:ring-2 focus:ring-green-700 resize-none"
+        />
+        <div className="flex gap-3">
+          <button onClick={handleConfirm} disabled={acting}
+            className="flex-1 py-2 bg-red-600 text-white rounded-xl text-sm hover:bg-red-700 disabled:opacity-50 transition flex items-center justify-center gap-1.5">
+            {acting && <Loader2 size={14} className="animate-spin" />}
+            Confirm
+          </button>
+          <button onClick={onClose}
+            className="flex-1 py-2 border border-gray-300 rounded-xl text-sm text-green-900 hover:bg-gray-50 transition">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── Stat card ─────────────────────────────────────────────────────────────────
 function StatCard({ label, value, icon: Icon, colour }) {
@@ -102,6 +165,203 @@ function EditModal({ product, categories, onSave, onClose }) {
             <button type="button" onClick={onClose}
               className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-green-900 hover:bg-gray-50 transition">
               Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Variants modal (add + edit) ───────────────────────────────────────────────
+const EMPTY_VARIANT = { size: '', color: '', sku: '', quantityInStock: '', priceOverride: '' };
+
+const INPUT_CLS = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-green-900 focus:outline-none focus:ring-2 focus:ring-green-700';
+
+function variantToForm(v) {
+  return {
+    size:            v.size            ?? '',
+    color:           v.color           ?? '',
+    sku:             v.sku             ?? '',
+    quantityInStock: v.quantityInStock ?? '',
+    priceOverride:   v.priceOverride   ?? '',
+  };
+}
+
+function VariantFields({ form, onChange }) {
+  const handle = e => onChange(f => ({ ...f, [e.target.name]: e.target.value }));
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-3">
+        {[
+          { name: 'size',          label: 'Size',               type: 'text'   },
+          { name: 'color',         label: 'Color',              type: 'text'   },
+          { name: 'sku',           label: 'SKU',                type: 'text'   },
+          { name: 'priceOverride', label: 'Price Override (₦)', type: 'number' },
+        ].map(f => (
+          <div key={f.name}>
+            <label className="block text-xs text-gray-500 mb-1">{f.label}</label>
+            <input name={f.name} type={f.type} value={form[f.name]} onChange={handle} className={INPUT_CLS} />
+          </div>
+        ))}
+      </div>
+      <div className="mt-3">
+        <label className="block text-xs text-gray-500 mb-1">Quantity in Stock <span className="text-red-400">*</span></label>
+        <input name="quantityInStock" type="number" min="0" value={form.quantityInStock} onChange={handle} className={INPUT_CLS} />
+      </div>
+    </>
+  );
+}
+
+function VariantsModal({ product, onClose }) {
+  const [variants,     setVariants]     = useState([]);
+  const [loadingList,  setLoadingList]  = useState(true);
+  const [editingId,    setEditingId]    = useState(null);
+  const [editForm,     setEditForm]     = useState(EMPTY_VARIANT);
+  const [addForm,      setAddForm]      = useState(EMPTY_VARIANT);
+  const [saving,       setSaving]       = useState(false);
+  const [deletingVId,  setDeletingVId]  = useState(null);
+  const [error,        setError]        = useState('');
+
+  useEffect(() => {
+    productsApi.getVariants(product.id)
+      .then(data => setVariants(Array.isArray(data) ? data : []))
+      .catch(() => setVariants([]))
+      .finally(() => setLoadingList(false));
+  }, [product.id]);
+
+  const startEdit = (v) => { setEditingId(v.id); setEditForm(variantToForm(v)); setError(''); };
+  const cancelEdit = () => { setEditingId(null); setError(''); };
+
+  const handleDeleteVariant = async (variantId) => {
+    setDeletingVId(variantId);
+    try {
+      await productsApi.deleteVariant(product.id, variantId);
+      setVariants(prev => prev.filter(v => v.id !== variantId));
+      toast.success('Variant deleted.');
+    } catch (err) {
+      toast.error(err.message ?? 'Failed to delete variant.');
+    } finally {
+      setDeletingVId(null);
+    }
+  };
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (!editForm.quantityInStock) { setError('Quantity is required.'); return; }
+    setSaving(true);
+    try {
+      const updated = await productsApi.updateVariant(product.id, editingId, {
+        size:            editForm.size            || undefined,
+        color:           editForm.color           || undefined,
+        sku:             editForm.sku             || undefined,
+        quantityInStock: parseInt(editForm.quantityInStock, 10),
+        priceOverride:   editForm.priceOverride   ? parseFloat(editForm.priceOverride) : undefined,
+      });
+      setVariants(prev => prev.map(v => v.id === editingId ? (updated ?? { ...v, ...editForm }) : v));
+      toast.success('Variant updated.');
+      setEditingId(null);
+    } catch (err) {
+      setError(err.message ?? 'Failed to update variant.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAdd = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (!addForm.quantityInStock) { setError('Quantity is required.'); return; }
+    setSaving(true);
+    try {
+      const created = await productsApi.addVariant(product.id, {
+        size:            addForm.size            || undefined,
+        color:           addForm.color           || undefined,
+        sku:             addForm.sku             || undefined,
+        quantityInStock: parseInt(addForm.quantityInStock, 10),
+        priceOverride:   addForm.priceOverride   ? parseFloat(addForm.priceOverride) : undefined,
+      });
+      setVariants(prev => [...prev, created]);
+      toast.success('Variant added.');
+      setAddForm(EMPTY_VARIANT);
+    } catch (err) {
+      setError(err.message ?? 'Failed to add variant.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6">
+        <h2 className="text-lg font-bold text-green-900 mb-1">Variants</h2>
+        <p className="text-xs text-gray-400 mb-4">{product.name}</p>
+        {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
+
+        {/* ── Existing variants ── */}
+        {loadingList ? (
+          <div className="flex justify-center py-6"><Loader2 className="animate-spin text-orange-400" size={24} /></div>
+        ) : variants.length > 0 && (
+          <div className="mb-6 space-y-3">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Existing Variants</p>
+            {variants.map(v => (
+              <div key={v.id} className="border border-gray-200 rounded-xl p-4">
+                {editingId === v.id ? (
+                  <form onSubmit={handleUpdate} className="space-y-3">
+                    <VariantFields form={editForm} onChange={setEditForm} />
+                    <div className="flex gap-2 pt-1">
+                      <button type="submit" disabled={saving}
+                        className="flex-1 py-2 bg-green-900 text-orange-100 rounded-xl text-sm hover:bg-green-800 disabled:opacity-50 transition">
+                        {saving ? 'Saving…' : 'Save'}
+                      </button>
+                      <button type="button" onClick={cancelEdit}
+                        className="flex-1 py-2 border border-gray-300 rounded-xl text-sm text-green-900 hover:bg-gray-50 transition">
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-green-900">
+                      {v.size  && <span><span className="text-xs text-gray-400">Size </span>{v.size}</span>}
+                      {v.color && <span><span className="text-xs text-gray-400">Color </span>{v.color}</span>}
+                      {v.sku   && <span><span className="text-xs text-gray-400">SKU </span>{v.sku}</span>}
+                      <span><span className="text-xs text-gray-400">Qty </span>{v.quantityInStock}</span>
+                      {v.priceOverride && <span><span className="text-xs text-gray-400">Price </span>₦{Number(v.priceOverride).toLocaleString()}</span>}
+                    </div>
+                    <div className="flex gap-1 flex-shrink-0">
+                      <button onClick={() => startEdit(v)}
+                        className="p-1.5 text-gray-400 hover:text-green-700 transition" title="Edit variant">
+                        <Edit2 size={15} />
+                      </button>
+                      <button onClick={() => handleDeleteVariant(v.id)}
+                        disabled={deletingVId === v.id}
+                        className="p-1.5 text-gray-400 hover:text-red-500 transition disabled:opacity-40" title="Delete variant">
+                        {deletingVId === v.id
+                          ? <Loader2 size={15} className="animate-spin" />
+                          : <Trash2 size={15} />}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── Add new variant ── */}
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Add New Variant</p>
+        <form onSubmit={handleAdd} className="space-y-3">
+          <VariantFields form={addForm} onChange={setAddForm} />
+          <div className="flex gap-3 pt-2">
+            <button type="submit" disabled={saving}
+              className="flex-1 py-2.5 bg-green-900 text-orange-100 rounded-xl text-sm hover:bg-green-800 disabled:opacity-50 transition">
+              {saving ? 'Adding…' : 'Add Variant'}
+            </button>
+            <button type="button" onClick={onClose}
+              className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-green-900 hover:bg-gray-50 transition">
+              Done
             </button>
           </div>
         </form>
@@ -257,9 +517,14 @@ const VendorPage = () => {
   const [loading,          setLoading]          = useState(true);
   const [ordersLoading,    setOrdersLoading]    = useState(true);
   const [editProduct,      setEditProduct]      = useState(null);
+  const [variantProduct,   setVariantProduct]   = useState(null);
   const [deletingId,       setDeletingId]       = useState(null);
   const [error,            setError]            = useState('');
   const [ordersError,      setOrdersError]      = useState('');
+  const [vendorRole,       setVendorRole]       = useState(null); // 0=Owner 1=Initiator 2=Approver
+  const [submittingId,     setSubmittingId]     = useState(null);
+  const [approvingId,      setApprovingId]      = useState(null);
+  const [rejectModal,      setRejectModal]      = useState(null); // { id, type: 'approval'|'deletion' }
 
   // Full data used only for accurate stat cards (not the table)
   const [statsProducts, setStatsProducts] = useState([]);
@@ -307,19 +572,107 @@ const VendorPage = () => {
       .catch(() => {});
   }, []);
 
+  // Resolve current user's role within this vendor team (same approach as VendorSettingsPanel)
+  useEffect(() => {
+    if (!user?.id) return;
+    vendorApi.getMine()
+      .then(data => {
+        const members = data?.members ?? [];
+        const mine = members.find(m => m.userId === user.id);
+        if (mine != null) setVendorRole(mine.role ?? null);
+      })
+      .catch(() => {});
+  }, [user?.id]);
+
   const handleDelete = (id) => {
-    confirmToast('Delete this product permanently?', async () => {
-      setDeletingId(id);
-      try {
-        await productsApi.deleteMine(id);
-        setMyProducts(prev => prev.filter(p => p.id !== id));
-        setStatsProducts(prev => prev.filter(p => p.id !== id));
-      } catch (err) {
-        toast.error(err.message);
-      } finally {
-        setDeletingId(null);
+    if (vendorRole === 1) {
+      // Initiator: request deletion (moves to PendingDeletion=4)
+      confirmToast('Request deletion of this product?', async () => {
+        setDeletingId(id);
+        try {
+          await productsApi.requestDelete(id);
+          setMyProducts(prev => prev.map(p => p.id === id ? { ...p, status: 4 } : p));
+          toast.success('Deletion requested — awaiting approval.');
+        } catch (err) {
+          toast.error(err.message);
+        } finally {
+          setDeletingId(null);
+        }
+      });
+    } else {
+      // Owner (or unknown): direct delete
+      confirmToast('Delete this product permanently?', async () => {
+        setDeletingId(id);
+        try {
+          await productsApi.deleteMine(id);
+          setMyProducts(prev => prev.filter(p => p.id !== id));
+          setStatsProducts(prev => prev.filter(p => p.id !== id));
+        } catch (err) {
+          toast.error(err.message);
+        } finally {
+          setDeletingId(null);
+        }
+      });
+    }
+  };
+
+  const handleSubmitProduct = async (id) => {
+    setSubmittingId(id);
+    try {
+      await productsApi.submit(id);
+      setMyProducts(prev => prev.map(p => p.id === id ? { ...p, status: 1 } : p)); // PendingApproval
+      toast.success('Product submitted for approval.');
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSubmittingId(null);
+    }
+  };
+
+  const handleApproveProduct = async (id) => {
+    setApprovingId(id);
+    try {
+      await productsApi.approve(id);
+      setMyProducts(prev => prev.map(p => p.id === id ? { ...p, status: 2 } : p)); // Active
+      toast.success('Product approved.');
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
+  const handleApproveDeletion = async (id) => {
+    setApprovingId(id);
+    try {
+      await productsApi.approve(id);
+      setMyProducts(prev => prev.filter(p => p.id !== id));
+      setStatsProducts(prev => prev.filter(p => p.id !== id));
+      toast.success('Deletion approved.');
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
+  const handleRejectConfirm = async (reason) => {
+    if (!rejectModal) return;
+    const { id, type } = rejectModal;
+    try {
+      await productsApi.reject(id, reason);
+      if (type === 'approval') {
+        setMyProducts(prev => prev.map(p => p.id === id ? { ...p, status: 3 } : p)); // Rejected
+        toast.success('Product rejected.');
+      } else {
+        setMyProducts(prev => prev.map(p => p.id === id ? { ...p, status: 2 } : p)); // Active
+        toast.success('Deletion rejected — product restored to Active.');
       }
-    });
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setRejectModal(null);
+    }
   };
 
   const handleSaved = (updated) => {
@@ -388,6 +741,7 @@ const VendorPage = () => {
             { key: 'products',  label: 'Products',  count: totalProducts },
             { key: 'orders',    label: 'Orders',    count: totalOrders   },
             { key: 'analytics', label: 'Analytics', count: null          },
+            { key: 'settings',  label: 'Settings',  count: null          },
           ].map(tab => (
             <button
               key={tab.key}
@@ -443,6 +797,7 @@ const VendorPage = () => {
                       <th className="px-5 py-3">Product</th>
                       <th className="px-5 py-3">Price</th>
                       <th className="px-5 py-3">Stock</th>
+                      <th className="px-5 py-3">Status</th>
                       <th className="px-5 py-3">Rating</th>
                       <th className="px-5 py-3 text-right">Actions</th>
                     </tr>
@@ -482,6 +837,9 @@ const VendorPage = () => {
                             {product.quantityInStock > 0 ? `${product.quantityInStock} left` : 'Out of stock'}
                           </span>
                         </td>
+                        <td className="px-5 py-4">
+                          <ProductStatusBadge status={product.status} />
+                        </td>
                         <td className="px-5 py-4 text-gray-600">
                           {(() => {
                             const reviews = product.reviews ?? [];
@@ -492,25 +850,101 @@ const VendorPage = () => {
                         </td>
                         <td className="px-5 py-4">
                           <div className="flex items-center justify-end gap-2">
-                            <Link to={`/productimages/${product.id}`}
-                              title="Manage images"
-                              className="p-1.5 text-gray-400 hover:text-blue-500 transition">
-                              <Image size={16} />
-                            </Link>
-                            <button onClick={() => setEditProduct(product)}
-                              title="Edit product"
-                              className="p-1.5 text-gray-400 hover:text-green-700 transition">
-                              <Edit2 size={16} />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(product.id)}
-                              disabled={deletingId === product.id}
-                              title="Delete product"
-                              className="p-1.5 text-gray-400 hover:text-red-500 transition disabled:opacity-40">
-                              {deletingId === product.id
-                                ? <Loader2 size={16} className="animate-spin" />
-                                : <Trash2 size={16} />}
-                            </button>
+
+                            {/* Images — hidden for Approver */}
+                            {vendorRole !== 2 && (
+                              <Link to={`/productimages/${product.id}`} title="Manage images"
+                                className="p-1.5 text-gray-400 hover:text-blue-500 transition">
+                                <Image size={16} />
+                              </Link>
+                            )}
+
+                            {/* Variants — Owner always; Initiator only when not locked */}
+                            {(vendorRole === 0 || (vendorRole !== 2 && toStatusNum(product.status) !== 1 && toStatusNum(product.status) !== 4)) && (
+                              <button onClick={() => setVariantProduct(product)} title="Manage variants"
+                                className="p-1.5 text-gray-400 hover:text-purple-500 transition">
+                                <Layers size={16} />
+                              </button>
+                            )}
+
+                            {/* Edit — Owner/Initiator when not locked (Draft=0, Rejected=3 allowed) */}
+                            {vendorRole !== 2 && toStatusNum(product.status) !== 1 && toStatusNum(product.status) !== 4 && (
+                              <button onClick={() => setEditProduct(product)} title="Edit product"
+                                className="p-1.5 text-gray-400 hover:text-green-700 transition">
+                                <Edit2 size={16} />
+                              </button>
+                            )}
+
+                            {/* Submit for approval — Initiator, Draft=0 or Rejected=3 */}
+                            {vendorRole === 1 && (toStatusNum(product.status) === 0 || toStatusNum(product.status) === 3) && (
+                              <button onClick={() => handleSubmitProduct(product.id)}
+                                disabled={submittingId === product.id}
+                                title="Submit for approval"
+                                className="p-1.5 text-gray-400 hover:text-orange-500 transition disabled:opacity-40">
+                                {submittingId === product.id
+                                  ? <Loader2 size={16} className="animate-spin" />
+                                  : <Send size={16} />}
+                              </button>
+                            )}
+
+                            {/* Approve product — Owner/Approver, PendingApproval=1 */}
+                            {(vendorRole === 0 || vendorRole === 2) && toStatusNum(product.status) === 1 && (
+                              <button onClick={() => handleApproveProduct(product.id)}
+                                disabled={approvingId === product.id}
+                                title="Approve product"
+                                className="p-1.5 text-gray-400 hover:text-green-600 transition disabled:opacity-40">
+                                {approvingId === product.id
+                                  ? <Loader2 size={16} className="animate-spin" />
+                                  : <CheckCircle size={16} />}
+                              </button>
+                            )}
+
+                            {/* Reject product — Owner/Approver, PendingApproval=1 */}
+                            {(vendorRole === 0 || vendorRole === 2) && toStatusNum(product.status) === 1 && (
+                              <button onClick={() => setRejectModal({ id: product.id, type: 'approval' })}
+                                title="Reject product"
+                                className="p-1.5 text-gray-400 hover:text-red-500 transition">
+                                <XCircle size={16} />
+                              </button>
+                            )}
+
+                            {/* Approve deletion — Owner/Approver, PendingDeletion=4 */}
+                            {(vendorRole === 0 || vendorRole === 2) && toStatusNum(product.status) === 4 && (
+                              <button onClick={() => handleApproveDeletion(product.id)}
+                                disabled={approvingId === product.id}
+                                title="Approve deletion"
+                                className="p-1.5 text-gray-400 hover:text-red-600 transition disabled:opacity-40">
+                                {approvingId === product.id
+                                  ? <Loader2 size={16} className="animate-spin" />
+                                  : <Trash2 size={16} />}
+                              </button>
+                            )}
+
+                            {/* Reject deletion (restore to Active=2) — Owner/Approver, PendingDeletion=4 */}
+                            {(vendorRole === 0 || vendorRole === 2) && toStatusNum(product.status) === 4 && (
+                              <button onClick={() => setRejectModal({ id: product.id, type: 'deletion' })}
+                                title="Reject deletion — restore product"
+                                className="p-1.5 text-gray-400 hover:text-green-600 transition">
+                                <CheckCircle size={16} />
+                              </button>
+                            )}
+
+                            {/* Delete / Request-delete — not Approver, not when pending (1 or 4) */}
+                            {vendorRole !== 2 && toStatusNum(product.status) !== 1 && toStatusNum(product.status) !== 4 && (
+                              <button onClick={() => handleDelete(product.id)}
+                                disabled={deletingId === product.id}
+                                title={vendorRole === 1 ? 'Request deletion' : 'Delete product'}
+                                className="p-1.5 text-gray-400 hover:text-red-500 transition disabled:opacity-40">
+                                {deletingId === product.id
+                                  ? <Loader2 size={16} className="animate-spin" />
+                                  : <Trash2 size={16} />}
+                              </button>
+                            )}
+
+                            {/* Placeholder when Approver has nothing to act on */}
+                            {vendorRole === 2 && toStatusNum(product.status) !== 1 && toStatusNum(product.status) !== 4 && (
+                              <span className="text-xs text-gray-300 select-none">—</span>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -561,7 +995,18 @@ const VendorPage = () => {
         {/* Analytics panel */}
         {activeTab === 'analytics' && <VendorAnalyticsPanel />}
 
+        {/* Settings panel */}
+        {activeTab === 'settings' && <VendorSettingsPanel />}
+
       </div>
+
+      {/* Variants modal */}
+      {variantProduct && (
+        <VariantsModal
+          product={variantProduct}
+          onClose={() => setVariantProduct(null)}
+        />
+      )}
 
       {/* Edit modal */}
       {editProduct && (
@@ -570,6 +1015,19 @@ const VendorPage = () => {
           categories={categories}
           onSave={handleSaved}
           onClose={() => setEditProduct(null)}
+        />
+      )}
+
+      {/* Reject modal */}
+      {rejectModal && (
+        <RejectModal
+          title={
+            rejectModal.type === 'approval'
+              ? 'Reject product — it will return to Draft'
+              : 'Reject deletion — product will be restored to Active'
+          }
+          onConfirm={handleRejectConfirm}
+          onClose={() => setRejectModal(null)}
         />
       )}
     </MainLayout>
