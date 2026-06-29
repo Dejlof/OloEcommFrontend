@@ -1,7 +1,7 @@
 // src/pages/AdminPage.jsx
 import { useState, useEffect } from 'react';
 import MainLayout from '../layouts/MainLayout';
-import { categories as categoriesApi, deliveryfee as deliveryFeeApi, auth, vendor as vendorApi } from '../api/api';
+import { categories as categoriesApi, deliveryfee as deliveryFeeApi, auth, vendor as vendorApi, settlements as settlementsApi, returns as returnsApi } from '../api/api';
 import { apiFetch } from '../api/api';
 import { STATES, getCities } from '../utils/nigerianLocations';
 import Pagination from '../components/Pagination';
@@ -9,7 +9,8 @@ import { toast } from 'react-toastify';
 import { confirmToast } from '../utils/confirmToast';
 import {
   Users, Tag, Trash2, Edit2, Loader2, X, Shield, Truck, Search, BarChart2,
-  Store, ShieldCheck, ShieldAlert, ExternalLink, FileText, Landmark,
+  Store, ShieldCheck, ShieldAlert, ExternalLink, FileText, Landmark, Banknote,
+  AlertCircle, CheckCircle2, RotateCcw, CircleDollarSign,
 } from 'lucide-react';
 import AdminAnalyticsPanel from '../components/AdminAnalyticsPanel';
 
@@ -601,6 +602,24 @@ function VendorDetailModal({ vendor, onClose, onVerify, onReject }) {
   const [docActingId,   setDocActingId]   = useState(null);
   const [docRejectId,   setDocRejectId]   = useState(null);
   const [docRejectText, setDocRejectText] = useState('');
+  const [debts,         setDebts]         = useState(null);
+  const [debtsLoading,  setDebtsLoading]  = useState(true);
+  const [debtsFilter,   setDebtsFilter]   = useState('outstanding');
+
+  const loadDebts = (f) => {
+    setDebtsLoading(true);
+    const recovered = f === 'recovered' ? true : f === 'outstanding' ? false : undefined;
+    vendorApi.getDebts(vendor.id, recovered)
+      .then(data => setDebts(data ?? []))
+      .catch(() => setDebts([]))
+      .finally(() => setDebtsLoading(false));
+  };
+
+  useEffect(() => { loadDebts(debtsFilter); }, [vendor.id]);
+
+  const handleDebtsFilter = (f) => { setDebtsFilter(f); loadDebts(f); };
+
+  const fmtMoney = (n) => `₦${Number(n).toLocaleString()}`;
 
   const handleDocAction = async (docId, approved, rejectionReason = null) => {
     setDocActingId(docId);
@@ -796,6 +815,70 @@ function VendorDetailModal({ vendor, onClose, onVerify, onReject }) {
             )}
           </div>
 
+          {/* Debts */}
+          <div>
+            <h3 className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+              <AlertCircle size={13} /> Debts
+            </h3>
+            <div className="flex gap-2 mb-3">
+              {[
+                { key: 'outstanding', label: 'Outstanding' },
+                { key: 'recovered',   label: 'Recovered'   },
+                { key: 'all',         label: 'All'          },
+              ].map(({ key, label }) => (
+                <button key={key} onClick={() => handleDebtsFilter(key)}
+                  className={`text-xs px-3 py-1.5 rounded-lg border transition ${
+                    debtsFilter === key
+                      ? 'bg-green-900 text-orange-100 border-green-900'
+                      : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                  }`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            {debtsLoading ? (
+              <div className="flex justify-center py-4"><Loader2 size={20} className="animate-spin text-orange-400" /></div>
+            ) : !debts?.length ? (
+              <p className="text-sm text-gray-400">No {debtsFilter === 'all' ? '' : debtsFilter} debts.</p>
+            ) : (
+              <>
+                {debtsFilter !== 'recovered' && (
+                  <div className="mb-3 px-3 py-2 bg-red-50 border border-red-100 rounded-lg flex items-center justify-between">
+                    <span className="text-xs text-red-600 font-medium">Total outstanding</span>
+                    <span className="text-sm font-bold text-red-700">
+                      {fmtMoney(debts.reduce((s, d) => s + d.amount, 0))}
+                    </span>
+                  </div>
+                )}
+                <div className="border border-gray-100 rounded-xl divide-y divide-gray-100">
+                  {debts.map(d => (
+                    <div key={d.id} className="px-4 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-green-900 truncate">
+                            {d.productName ?? `Order #${d.orderDetailId}`}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            {new Date(d.createdAt).toLocaleDateString()}
+                          </p>
+                          {d.reason && <p className="text-xs text-gray-500 mt-0.5">{d.reason}</p>}
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="text-sm font-semibold text-red-700">{fmtMoney(d.amount)}</span>
+                          {d.isRecovered ? (
+                            <span className="text-xs px-2.5 py-1 bg-green-100 text-green-700 rounded-full">Recovered</span>
+                          ) : (
+                            <span className="text-xs px-2.5 py-1 bg-red-100 text-red-600 rounded-full">Outstanding</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
           {/* Team members */}
           <div>
             <h3 className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
@@ -861,6 +944,159 @@ function VendorDetailModal({ vendor, onClose, onVerify, onReject }) {
   );
 }
 
+// ── Add Debt modal ────────────────────────────────────────────────────────────
+const EMPTY_DEBT = { orderDetailId: '', amount: '', reason: '' };
+
+function AddDebtModal({ vendor, onClose, onSaved }) {
+  const [form,          setForm]          = useState(EMPTY_DEBT);
+  const [saving,        setSaving]        = useState(false);
+  const [error,         setError]         = useState('');
+  const [earnings,      setEarnings]      = useState([]);
+  const [earningsLoading, setEarningsLoading] = useState(true);
+
+  useEffect(() => {
+    vendorApi.getEarnings(vendor.id)
+      .then(data => setEarnings(data ?? []))
+      .catch(() => setEarnings([]))
+      .finally(() => setEarningsLoading(false));
+  }, [vendor.id]);
+
+  const handle = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+
+  const handleSelectEarning = (e) => {
+    const earning = earnings.find(r => String(r.orderDetailId) === e.target.value);
+    if (!earning) { setForm(f => ({ ...f, orderDetailId: '', amount: '' })); return; }
+    setForm(f => ({
+      ...f,
+      orderDetailId: String(earning.orderDetailId),
+      amount:        String(earning.netAmount),
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.orderDetailId || isNaN(Number(form.orderDetailId))) {
+      setError('Select an order or enter an Order Detail ID.'); return;
+    }
+    if (!form.amount || isNaN(Number(form.amount)) || Number(form.amount) <= 0) {
+      setError('A valid amount is required.'); return;
+    }
+    if (!form.reason.trim()) { setError('Reason is required.'); return; }
+    setError(''); setSaving(true);
+    try {
+      await settlementsApi.addDebt(vendor.id, {
+        orderDetailId: Number(form.orderDetailId),
+        amount:        Number(form.amount),
+        reason:        form.reason.trim(),
+      });
+      toast.success(`Debt of ₦${Number(form.amount).toLocaleString()} added for ${vendor.businessName}.`);
+      onSaved();
+      onClose();
+    } catch (err) {
+      setError(err.message ?? 'Failed to add debt.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const selectedEarning = earnings.find(r => String(r.orderDetailId) === form.orderDetailId);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div>
+            <h2 className="font-bold text-green-900">Add Debt</h2>
+            <p className="text-xs text-gray-400 mt-0.5">{vendor.businessName}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-700 transition">
+            <X size={18} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          {error && <p className="text-red-500 text-xs">{error}</p>}
+
+          {/* Order picker from delivered earnings */}
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Select Delivered Order</label>
+            {earningsLoading ? (
+              <div className="flex items-center gap-2 text-xs text-gray-400 py-2">
+                <Loader2 size={13} className="animate-spin" /> Loading orders…
+              </div>
+            ) : earnings.length === 0 ? (
+              <p className="text-xs text-gray-400 py-1">No delivered orders found for this vendor.</p>
+            ) : (
+              <select
+                value={form.orderDetailId}
+                onChange={handleSelectEarning}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-green-900 focus:outline-none focus:ring-2 focus:ring-green-700 bg-white">
+                <option value="">— Pick an order —</option>
+                {earnings.map(r => (
+                  <option key={r.orderDetailId} value={r.orderDetailId}>
+                    #{r.orderDetailId} — {r.orderDetail?.productName ?? `Order Detail ${r.orderDetailId}`} — ₦{Number(r.grossAmount).toLocaleString()}
+                    {r.isSettled ? ' (settled)' : ''}
+                  </option>
+                ))}
+              </select>
+            )}
+            {selectedEarning && (
+              <div className="mt-2 bg-gray-50 rounded-lg px-3 py-2 text-xs text-gray-500 space-y-0.5">
+                <p>Net amount: <span className="font-medium text-green-700">₦{Number(selectedEarning.netAmount).toLocaleString()}</span></p>
+                <p>Earned: {new Date(selectedEarning.earnedAt).toLocaleDateString()}</p>
+                {selectedEarning.isSettled && <p className="text-orange-500">Already settled</p>}
+              </div>
+            )}
+          </div>
+
+          {/* Amount — pre-filled from earning, editable */}
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Debt Amount (₦) *</label>
+            <input
+              name="amount"
+              type="number"
+              min="1"
+              step="any"
+              value={form.amount}
+              onChange={handle}
+              placeholder="e.g. 5000"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-green-900 focus:outline-none focus:ring-2 focus:ring-green-700"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Reason *</label>
+            <textarea
+              name="reason"
+              value={form.reason}
+              onChange={handle}
+              rows={3}
+              placeholder="e.g. Item returned by buyer — refund deducted from vendor earnings"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-green-900 focus:outline-none focus:ring-2 focus:ring-green-700 resize-none"
+            />
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 disabled:opacity-50 transition flex items-center justify-center gap-1.5">
+              {saving && <Loader2 size={14} className="animate-spin" />}
+              Add Debt
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ── Vendors panel ─────────────────────────────────────────────────────────────
 function VendorsPanel() {
   const [vendors,      setVendors]      = useState([]);
@@ -871,6 +1107,7 @@ function VendorsPanel() {
   const [totalPages,   setTotalPages]   = useState(1);
   const [totalCount,   setTotalCount]   = useState(0);
   const [selected,     setSelected]     = useState(null);
+  const [debtTarget,   setDebtTarget]   = useState(null);
 
   const load = (p = page, s = search) => {
     setLoading(true);
@@ -984,6 +1221,10 @@ function VendorsPanel() {
                             className="text-xs px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:border-green-700 hover:text-green-700 transition">
                             View
                           </button>
+                          <button onClick={() => setDebtTarget(v)}
+                            className="text-xs px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition flex items-center gap-1">
+                            <AlertCircle size={12} /> Add Debt
+                          </button>
                           {(v.status === 0 || v.status === 1) && (
                             <button onClick={() => handleVerify(v.id)}
                               className="text-xs px-3 py-1.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition flex items-center gap-1">
@@ -1012,17 +1253,388 @@ function VendorsPanel() {
           onReject={handleReject}
         />
       )}
+      {debtTarget && (
+        <AddDebtModal
+          vendor={debtTarget}
+          onClose={() => setDebtTarget(null)}
+          onSaved={() => load(page, search)}
+        />
+      )}
     </div>
+  );
+}
+
+// ── Settlements panel ─────────────────────────────────────────────────────────
+function SettlementsPanel() {
+  const [vendors,       setVendors]       = useState([]);
+  const [loading,       setLoading]       = useState(true);
+  const [error,         setError]         = useState('');
+  const [settlingId,    setSettlingId]    = useState(null);
+  const [processingAll, setProcessingAll] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    settlementsApi.getEligibleVendors()
+      .then(data => setVendors(data ?? []))
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleSettle = (vendorId, businessName) => {
+    confirmToast(`Process settlement for ${businessName}?`, async () => {
+      setSettlingId(vendorId);
+      try {
+        await settlementsApi.settle(vendorId);
+        toast.success(`Settlement processed for ${businessName}.`);
+        load();
+      } catch (err) {
+        toast.error(err.message ?? 'Settlement failed.');
+      } finally {
+        setSettlingId(null);
+      }
+    });
+  };
+
+  const handleProcessAll = () => {
+    confirmToast(`Process settlements for all ${vendors.length} eligible vendors?`, async () => {
+      setProcessingAll(true);
+      try {
+        await settlementsApi.processAll();
+        toast.success('All settlements processed successfully.');
+        load();
+      } catch (err) {
+        toast.error(err.message ?? 'Bulk settlement failed.');
+      } finally {
+        setProcessingAll(false);
+      }
+    });
+  };
+
+  const fmt = (n) => `₦${Number(n).toLocaleString()}`;
+  const fmtDate = (iso) => new Date(iso).toLocaleDateString();
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-4 flex-wrap">
+        <span className="font-semibold text-green-900 text-sm">
+          Eligible Vendors for Settlement ({vendors.length})
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={load}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 transition">
+            <Banknote size={13} /> Refresh
+          </button>
+          {vendors.length > 0 && (
+            <button
+              onClick={handleProcessAll}
+              disabled={processingAll}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-green-900 text-orange-100 rounded-lg hover:bg-green-800 disabled:opacity-50 transition">
+              {processingAll ? <Loader2 size={13} className="animate-spin" /> : <Banknote size={13} />}
+              Process All
+            </button>
+          )}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="animate-spin text-orange-400" size={30} />
+        </div>
+      ) : error ? (
+        <div className="flex items-center justify-center gap-2 py-12 text-red-500 text-sm">
+          <AlertCircle size={16} /> {error}
+        </div>
+      ) : vendors.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 py-12 text-gray-400 text-sm">
+          <CheckCircle2 size={28} className="text-green-300" />
+          No vendors eligible for settlement right now.
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide text-left">
+                <th className="px-5 py-3">Vendor</th>
+                <th className="px-5 py-3">Earnings</th>
+                <th className="px-5 py-3">Gross</th>
+                <th className="px-5 py-3">Debt</th>
+                <th className="px-5 py-3">Net Payable</th>
+                <th className="px-5 py-3">Bank</th>
+                <th className="px-5 py-3">Oldest Delivery</th>
+                <th className="px-5 py-3 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {vendors.map(v => (
+                <tr key={v.vendorId} className="hover:bg-gray-50 transition">
+                  <td className="px-5 py-3 font-medium text-green-900">{v.businessName}</td>
+                  <td className="px-5 py-3 text-gray-600">{v.earningsCount}</td>
+                  <td className="px-5 py-3 text-gray-800">{fmt(v.grossEarnings)}</td>
+                  <td className="px-5 py-3 text-red-500">{fmt(v.outstandingDebt)}</td>
+                  <td className="px-5 py-3 font-semibold text-green-700">{fmt(v.netPayable)}</td>
+                  <td className="px-5 py-3">
+                    {v.hasVerifiedBankAccount ? (
+                      <span className="flex items-center gap-1 text-green-600 text-xs">
+                        <CheckCircle2 size={13} /> Verified
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-orange-500 text-xs">
+                        <AlertCircle size={13} /> Unverified
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3 text-gray-500 text-xs">{fmtDate(v.oldestEligibleDeliveryDate)}</td>
+                  <td className="px-5 py-3 text-right">
+                    <button
+                      onClick={() => handleSettle(v.vendorId, v.businessName)}
+                      disabled={!v.hasVerifiedBankAccount || settlingId === v.vendorId}
+                      title={!v.hasVerifiedBankAccount ? 'Vendor has no verified bank account' : ''}
+                      className="flex items-center gap-1.5 ml-auto text-xs px-3 py-1.5 bg-green-900 text-orange-100 rounded-lg hover:bg-green-800 disabled:opacity-40 disabled:cursor-not-allowed transition">
+                      {settlingId === v.vendorId
+                        ? <Loader2 size={12} className="animate-spin" />
+                        : <Banknote size={12} />}
+                      Pay
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Returns panel ─────────────────────────────────────────────────────────────
+const RETURN_STATUS_LABELS  = { 0: 'Pending', 1: 'Under Review', 2: 'Approved', 3: 'Rejected', 4: 'Item Received', 5: 'Refunded' };
+const RETURN_STATUS_COLOURS = {
+  0: 'bg-yellow-100 text-yellow-700',
+  1: 'bg-blue-100   text-blue-700',
+  2: 'bg-green-100  text-green-700',
+  3: 'bg-red-100    text-red-600',
+  4: 'bg-purple-100 text-purple-700',
+  5: 'bg-emerald-100 text-emerald-700',
+};
+const RETURN_REASON_LABELS = {
+  0: 'Defective Item', 1: 'Wrong Item Received',
+  2: 'Item Not as Described', 3: 'Damaged in Shipping', 4: 'Changed Mind',
+};
+
+function ReturnStatusBadge({ status }) {
+  const k = typeof status === 'string' ? parseInt(status, 10) : status;
+  return (
+    <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${RETURN_STATUS_COLOURS[k] ?? 'bg-gray-100 text-gray-600'}`}>
+      {RETURN_STATUS_LABELS[k] ?? status}
+    </span>
+  );
+}
+
+function ApproverReviewModal({ ret, onClose, onDone }) {
+  const [approve, setApprove]     = useState(true);
+  const [reason, setReason]       = useState('');
+  const [saving, setSaving]       = useState(false);
+
+  const handleSubmit = async () => {
+    if (!approve && !reason.trim()) { toast.error('Please provide a rejection reason.'); return; }
+    setSaving(true);
+    try {
+      await returnsApi.approverReview(ret.id, { approve, rejectionReason: approve ? '' : reason });
+      toast.success(approve ? 'Return approved.' : 'Return rejected.');
+      onDone(); onClose();
+    } catch (err) {
+      toast.error(err.message ?? 'Failed to submit review.');
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+        <h3 className="font-semibold text-green-900">Review Return — {ret.productName}</h3>
+
+        {ret.initiatorNotes && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-xs text-blue-700">
+            <span className="font-semibold">Initiator notes: </span>{ret.initiatorNotes}
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          {[{ val: true, label: 'Approve' }, { val: false, label: 'Reject' }].map(opt => (
+            <button key={String(opt.val)} type="button" onClick={() => setApprove(opt.val)}
+              className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition ${
+                approve === opt.val
+                  ? opt.val ? 'bg-green-900 text-orange-100 border-green-900' : 'bg-red-600 text-white border-red-600'
+                  : 'border-gray-300 text-gray-500 hover:border-gray-400'
+              }`}>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        {!approve && (
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Rejection Reason *</label>
+            <textarea value={reason} onChange={e => setReason(e.target.value)} rows={3}
+              placeholder="Explain why this return is being rejected…"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-green-900 focus:outline-none focus:ring-2 focus:ring-green-700 resize-none" />
+          </div>
+        )}
+
+        <div className="flex gap-3 pt-1">
+          <button onClick={handleSubmit} disabled={saving}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm disabled:opacity-50 transition ${
+              approve ? 'bg-green-900 text-orange-100 hover:bg-green-800' : 'bg-red-600 text-white hover:bg-red-700'
+            }`}>
+            {saving && <Loader2 size={14} className="animate-spin" />}
+            {saving ? 'Submitting…' : approve ? 'Confirm Approval' : 'Confirm Rejection'}
+          </button>
+          <button onClick={onClose} className="px-5 py-2.5 border border-gray-300 rounded-xl text-sm text-green-900 hover:bg-gray-50 transition">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReturnsPanel() {
+  const [returnList, setReturnList]   = useState([]);
+  const [loading, setLoading]         = useState(true);
+  const [reviewModal, setReviewModal] = useState(null);
+  const [refundingId, setRefundingId] = useState(null);
+
+  const load = () => {
+    setLoading(true);
+    returnsApi.getAll()
+      .then(data => setReturnList(Array.isArray(data) ? data : (data?.items ?? [])))
+      .catch(err => toast.error(err.message))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleProcessRefund = (r) => {
+    confirmToast(`Process refund of ₦${Number(r.refundAmount).toLocaleString()} for ${r.productName}?`, async () => {
+      setRefundingId(r.id);
+      try {
+        await returnsApi.processRefund(r.id);
+        toast.success('Refund processed successfully.');
+        load();
+      } catch (err) {
+        toast.error(err.message ?? 'Failed to process refund.');
+      } finally {
+        setRefundingId(null);
+      }
+    });
+  };
+
+  const statusNum = r => typeof r.status === 'string' ? parseInt(r.status, 10) : r.status;
+
+  if (loading) return <div className="flex justify-center py-16"><Loader2 className="animate-spin text-orange-400" size={32} /></div>;
+
+  if (returnList.length === 0) return (
+    <div className="flex flex-col items-center py-20 text-center">
+      <RotateCcw size={48} className="text-orange-200 mb-4" />
+      <p className="text-gray-500">No return requests found.</p>
+    </div>
+  );
+
+  const pending   = returnList.filter(r => statusNum(r) < 5).length;
+
+  return (
+    <>
+      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <h2 className="font-semibold text-green-900">All Return Requests ({returnList.length})</h2>
+          {pending > 0 && (
+            <span className="text-xs px-2.5 py-1 bg-orange-100 text-orange-600 rounded-full font-medium">
+              {pending} active
+            </span>
+          )}
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 text-left text-xs text-gray-500 uppercase tracking-wide">
+                <th className="px-5 py-3">Product</th>
+                <th className="px-5 py-3">Reason</th>
+                <th className="px-5 py-3">Refund</th>
+                <th className="px-5 py-3">Requested</th>
+                <th className="px-5 py-3">Status</th>
+                <th className="px-5 py-3">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {returnList.map(r => {
+                const s = statusNum(r);
+                return (
+                  <tr key={r.id} className="hover:bg-gray-50 transition">
+                    <td className="px-5 py-3">
+                      <p className="font-medium text-green-900">{r.productName}</p>
+                      {r.additionalNotes && (
+                        <p className="text-xs text-gray-400 mt-0.5 italic truncate max-w-[180px]">"{r.additionalNotes}"</p>
+                      )}
+                    </td>
+                    <td className="px-5 py-3 text-gray-600">{RETURN_REASON_LABELS[r.reason] ?? r.reason}</td>
+                    <td className="px-5 py-3 font-semibold text-green-900">₦{Number(r.refundAmount).toLocaleString()}</td>
+                    <td className="px-5 py-3 text-gray-500 whitespace-nowrap">
+                      {new Date(r.requestedAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </td>
+                    <td className="px-5 py-3">
+                      <ReturnStatusBadge status={r.status} />
+                      {r.rejectionReason && <p className="text-xs text-red-500 mt-1">{r.rejectionReason}</p>}
+                      {r.refundReference  && <p className="text-xs text-gray-400 mt-1">Ref: {r.refundReference}</p>}
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="flex flex-col gap-1.5">
+                        {/* Admin can approve/reject Pending or InitiatorRecommended */}
+                        {(s === 0 || s === 1) && (
+                          <button onClick={() => setReviewModal(r)}
+                            className="px-3 py-1.5 text-xs bg-green-50 text-green-700 border border-green-200 rounded-lg hover:bg-green-100 transition whitespace-nowrap">
+                            Approve / Reject
+                          </button>
+                        )}
+                        {/* Process refund once item is received */}
+                        {s === 4 && (
+                          <button onClick={() => handleProcessRefund(r)} disabled={refundingId === r.id}
+                            className="flex items-center gap-1 px-3 py-1.5 text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 disabled:opacity-50 transition whitespace-nowrap">
+                            {refundingId === r.id
+                              ? <Loader2 size={11} className="animate-spin" />
+                              : <CircleDollarSign size={11} />}
+                            Process Refund
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {reviewModal && (
+        <ApproverReviewModal ret={reviewModal} onClose={() => setReviewModal(null)} onDone={load} />
+      )}
+    </>
   );
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 const TABS = [
-  { id: 'users',         label: 'Users',          icon: Users    },
-  { id: 'vendors',       label: 'Vendors',         icon: Store    },
-  { id: 'categories',    label: 'Categories',     icon: Tag      },
-  { id: 'deliveryfees',  label: 'Delivery Fees',  icon: Truck    },
-  { id: 'analytics',     label: 'Analytics',      icon: BarChart2 },
+  { id: 'users',        label: 'Users',        icon: Users      },
+  { id: 'vendors',      label: 'Vendors',      icon: Store      },
+  { id: 'categories',   label: 'Categories',   icon: Tag        },
+  { id: 'deliveryfees', label: 'Delivery Fees', icon: Truck     },
+  { id: 'settlements',  label: 'Settlements',  icon: Banknote   },
+  { id: 'returns',      label: 'Returns',      icon: RotateCcw  },
+  { id: 'analytics',    label: 'Analytics',    icon: BarChart2  },
 ];
 
 const AdminPage = () => {
@@ -1049,6 +1661,8 @@ const AdminPage = () => {
         {activeTab === 'vendors'      && <VendorsPanel />}
         {activeTab === 'categories'   && <CategoriesPanel />}
         {activeTab === 'deliveryfees' && <DeliveryFeesPanel />}
+        {activeTab === 'settlements'  && <SettlementsPanel />}
+        {activeTab === 'returns'      && <ReturnsPanel />}
         {activeTab === 'analytics'    && <AdminAnalyticsPanel />}
       </div>
     </MainLayout>

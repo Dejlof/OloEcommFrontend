@@ -8,6 +8,7 @@ import {
   Loader2, Building2, Users, FileText, Landmark,
   Edit2, Check, X, ShieldCheck, ShieldAlert, Clock,
   Upload, ImageOff, RefreshCw, Trash2, ExternalLink,
+  TrendingUp, CircleDollarSign, Info, History, AlertCircle,
 } from 'lucide-react';
 
 // ── Enum maps ─────────────────────────────────────────────────────────────────
@@ -23,6 +24,14 @@ const VENDOR_STATUS = {
 const MEMBER_ROLE = { 0: 'Owner', 1: 'Initiator', 2: 'Approver' };
 
 const DOCUMENT_TYPE = { 0: 'NIN', 1: 'Passport', 2: 'CAC', 3: 'TIN', 4: 'Utility Bill', 5: 'Business License' };
+
+// Mirrors backend SettlementStatus: Pending=1 Processing=2 Completed=3 Failed=4
+const SETTLEMENT_STATUS = {
+  1: { label: 'Pending',    colour: 'bg-yellow-100 text-yellow-700' },
+  2: { label: 'Processing', colour: 'bg-blue-100 text-blue-700'     },
+  3: { label: 'Completed',  colour: 'bg-green-100 text-green-700'   },
+  4: { label: 'Failed',     colour: 'bg-red-100 text-red-600'       },
+};
 
 const DOC_STATUS = {
   0: { label: 'Pending',      colour: 'bg-yellow-100 text-yellow-700' },
@@ -698,7 +707,7 @@ function BankAccounts({ vendorId, accounts, onAccountAdded, onPrimaryChanged, on
       const newAccount = await vendorApi.addBankAccount(vendorId, {
         accountName:   resolvedName,
         accountNumber: form.accountNumber,
-        bankCode:      form.bankCode,
+        bankCode:      RESOLVE_BANK_CODE_OVERRIDE ?? form.bankCode,
         bankName:      bank?.name ?? '',
         isPrimary:     form.isPrimary,
       });
@@ -853,6 +862,270 @@ function BankAccounts({ vendorId, accounts, onAccountAdded, onPrimaryChanged, on
   );
 }
 
+// ── Earnings ──────────────────────────────────────────────────────────────────
+function fmt(amount) {
+  return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(amount);
+}
+
+function EarningsSummaryCard({ label, value, sub, highlight }) {
+  return (
+    <div className={`rounded-xl border px-4 py-3 ${highlight ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+      <p className="text-xs text-gray-500 mb-0.5">{label}</p>
+      <p className={`text-base font-semibold ${highlight ? 'text-green-800' : 'text-green-900'}`}>{value}</p>
+      {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+    </div>
+  );
+}
+
+function Earnings({ vendorId }) {
+  const [earnings, setEarnings] = useState(null);
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState('');
+
+  useEffect(() => {
+    vendorApi.getEarnings(vendorId)
+      .then(data => setEarnings(data ?? []))
+      .catch(err => setError(err.message ?? 'Failed to load earnings.'))
+      .finally(() => setLoading(false));
+  }, [vendorId]);
+
+  const reload = () => {
+    setLoading(true);
+    setError('');
+    vendorApi.getEarnings(vendorId)
+      .then(data => setEarnings(data ?? []))
+      .catch(err => setError(err.message ?? 'Failed to load earnings.'))
+      .finally(() => setLoading(false));
+  };
+
+  const totalGross = earnings?.reduce((s, e) => s + e.grossAmount, 0) ?? 0;
+  const totalNet   = earnings?.reduce((s, e) => s + e.netAmount,   0) ?? 0;
+
+  return (
+    <Section icon={TrendingUp} title="Unsettled Earnings">
+      {/* T+7 notice */}
+      <div className="flex items-start gap-2 px-3 py-2.5 bg-orange-50 border border-orange-100 rounded-lg mb-5 text-xs text-orange-700">
+        <Info size={13} className="mt-0.5 flex-shrink-0" />
+        <span>Earnings become eligible for settlement <strong>7 days (T+7)</strong> after the delivery date.</span>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <Loader2 size={24} className="animate-spin text-orange-400" />
+        </div>
+      ) : error ? (
+        <div className="flex items-center justify-between px-3 py-2.5 bg-red-50 border border-red-100 rounded-lg text-sm text-red-600">
+          <span>{error}</span>
+          <button onClick={reload} className="ml-3 flex items-center gap-1 text-xs underline hover:no-underline">
+            <RefreshCw size={12} /> Retry
+          </button>
+        </div>
+      ) : earnings.length === 0 ? (
+        <div className="text-center py-8">
+          <CircleDollarSign size={32} className="text-gray-200 mx-auto mb-2" />
+          <p className="text-sm text-gray-400">No unsettled earnings.</p>
+          <p className="text-xs text-gray-400 mt-1">Earnings awaiting settlement will appear here.</p>
+        </div>
+      ) : (
+        <>
+          {/* Summary cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+            <EarningsSummaryCard label="Total Sales"   value={fmt(totalGross)} />
+            <EarningsSummaryCard label="Pending Payout" value={fmt(totalNet)} highlight />
+          </div>
+
+          {/* Earnings list */}
+          <div className="divide-y divide-gray-100">
+            {earnings.map(e => {
+              const date = new Date(e.earnedAt);
+              const eligible = new Date(date.getTime() + 7 * 24 * 60 * 60 * 1000) <= new Date();
+              return (
+                <div key={e.id} className="flex items-center justify-between py-3 gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-green-900 truncate">{e.productName}</p>
+                    <p className="text-xs text-gray-400">
+                      {date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <p className="text-sm font-semibold text-green-900">{fmt(e.netAmount)}</p>
+                    {eligible ? (
+                      <span className="text-xs px-2.5 py-1 bg-orange-100 text-orange-700 rounded-full whitespace-nowrap">Eligible</span>
+                    ) : (
+                      <span className="text-xs px-2.5 py-1 bg-gray-100 text-gray-500 rounded-full whitespace-nowrap">Pending T+7</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </Section>
+  );
+}
+
+// ── Settlement History ────────────────────────────────────────────────────────
+function SettlementHistory({ vendorId }) {
+  const [records,  setRecords]  = useState(null);
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState('');
+
+  const load = () => {
+    setLoading(true);
+    setError('');
+    vendorApi.getSettlements(vendorId)
+      .then(data => setRecords(data ?? []))
+      .catch(err => setError(err.message ?? 'Failed to load settlement history.'))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, [vendorId]);
+
+  return (
+    <Section icon={History} title="Settlement History">
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <Loader2 size={24} className="animate-spin text-orange-400" />
+        </div>
+      ) : error ? (
+        <div className="flex items-center justify-between px-3 py-2.5 bg-red-50 border border-red-100 rounded-lg text-sm text-red-600">
+          <span>{error}</span>
+          <button onClick={load} className="ml-3 flex items-center gap-1 text-xs underline hover:no-underline">
+            <RefreshCw size={12} /> Retry
+          </button>
+        </div>
+      ) : records.length === 0 ? (
+        <div className="text-center py-8">
+          <History size={32} className="text-gray-200 mx-auto mb-2" />
+          <p className="text-sm text-gray-400">No settlements yet.</p>
+        </div>
+      ) : (
+        <div className="divide-y divide-gray-100">
+          {records.map(r => {
+            const st = SETTLEMENT_STATUS[r.status] ?? { label: 'Unknown', colour: 'bg-gray-100 text-gray-500' };
+            const initiated = r.initiatedAt ? new Date(r.initiatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+            const completed = r.completedAt ? new Date(r.completedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : null;
+            return (
+              <div key={r.id} className="py-3 flex flex-col gap-1">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-green-900">{fmt(r.amount)}</p>
+                    <p className="text-xs text-gray-400">{initiated}{completed ? ` → ${completed}` : ''}</p>
+                  </div>
+                  <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${st.colour}`}>{st.label}</span>
+                </div>
+                {r.failureReason && (
+                  <p className="text-xs text-red-500 flex items-start gap-1">
+                    <Info size={11} className="mt-0.5 flex-shrink-0" />
+                    {r.failureReason}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Section>
+  );
+}
+
+// ── Vendor Debts ──────────────────────────────────────────────────────────────
+function VendorDebts({ vendorId }) {
+  const [debts,    setDebts]    = useState(null);
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState('');
+  const [filter,   setFilter]   = useState('outstanding'); // 'outstanding' | 'recovered' | 'all'
+
+  const load = (f) => {
+    setLoading(true);
+    setError('');
+    const recovered = f === 'recovered' ? true : f === 'outstanding' ? false : undefined;
+    vendorApi.getDebts(vendorId, recovered)
+      .then(data => setDebts(data ?? []))
+      .catch(err => setError(err.message ?? 'Failed to load debts.'))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(filter); }, [vendorId]);
+
+  const handleFilter = (f) => { setFilter(f); load(f); };
+
+  const totalDebt = debts?.reduce((s, d) => s + d.amount, 0) ?? 0;
+
+  return (
+    <Section icon={AlertCircle} title="Debts">
+      {/* Filter tabs */}
+      <div className="flex gap-2 mb-4">
+        {[
+          { key: 'outstanding', label: 'Outstanding' },
+          { key: 'recovered',   label: 'Recovered'   },
+          { key: 'all',         label: 'All'          },
+        ].map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => handleFilter(key)}
+            className={`text-xs px-3 py-1.5 rounded-lg border transition ${
+              filter === key
+                ? 'bg-green-900 text-orange-100 border-green-900'
+                : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+            }`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <Loader2 size={24} className="animate-spin text-orange-400" />
+        </div>
+      ) : error ? (
+        <div className="flex items-center justify-between px-3 py-2.5 bg-red-50 border border-red-100 rounded-lg text-sm text-red-600">
+          <span>{error}</span>
+          <button onClick={() => load(filter)} className="ml-3 flex items-center gap-1 text-xs underline hover:no-underline">
+            <RefreshCw size={12} /> Retry
+          </button>
+        </div>
+      ) : debts.length === 0 ? (
+        <div className="text-center py-8">
+          <AlertCircle size={32} className="text-gray-200 mx-auto mb-2" />
+          <p className="text-sm text-gray-400">No {filter === 'all' ? '' : filter} debts.</p>
+        </div>
+      ) : (
+        <>
+          {filter !== 'recovered' && (
+            <div className="mb-4 px-3 py-2.5 bg-red-50 border border-red-100 rounded-lg flex items-center justify-between">
+              <span className="text-xs text-red-600 font-medium">Total outstanding</span>
+              <span className="text-sm font-bold text-red-700">{fmt(totalDebt)}</span>
+            </div>
+          )}
+          <div className="divide-y divide-gray-100">
+            {debts.map(d => (
+              <div key={d.id} className="py-3 flex flex-col gap-0.5">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-green-900 truncate">{d.productName ?? `Order #${d.orderDetailId}`}</p>
+                    <p className="text-xs text-gray-400">{new Date(d.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="text-sm font-semibold text-red-700">{fmt(d.amount)}</span>
+                    {d.isRecovered ? (
+                      <span className="text-xs px-2.5 py-1 bg-green-100 text-green-700 rounded-full">Recovered</span>
+                    ) : (
+                      <span className="text-xs px-2.5 py-1 bg-red-100 text-red-600 rounded-full">Outstanding</span>
+                    )}
+                  </div>
+                </div>
+                {d.reason && <p className="text-xs text-gray-500">{d.reason}</p>}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </Section>
+  );
+}
+
 // ── Main panel ────────────────────────────────────────────────────────────────
 export default function VendorSettingsPanel() {
   const { user }  = useAuth();
@@ -918,6 +1191,9 @@ export default function VendorSettingsPanel() {
         }))}
         isOwner={isOwner}
       />
+      <Earnings vendorId={profile.id} />
+      <VendorDebts vendorId={profile.id} />
+      <SettlementHistory vendorId={profile.id} />
     </div>
   );
 }

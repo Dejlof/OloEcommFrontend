@@ -4,12 +4,12 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import MainLayout from '../layouts/MainLayout';
 import RatingSummary from '../components/RatingSummary';
 import OtherProductsLike from '../components/OtherProductsLike';
-import { products as productsApi, reviews as reviewsApi, wishlist as wishlistApi } from '../api/api'; // reviewsApi used in handleReviewSubmit
+import { products as productsApi, reviews as reviewsApi, wishlist as wishlistApi, vendor as vendorApi } from '../api/api';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faStar, faStarHalfAlt } from '@fortawesome/free-solid-svg-icons';
-import { Heart, ArrowLeft, Loader2, ShoppingCart } from 'lucide-react';
+import { Heart, ArrowLeft, Loader2, ShoppingCart, ShieldCheck, ShieldAlert } from 'lucide-react';
 
 function StarRow({ rating, size = 'text-sm' }) {
   return (
@@ -38,7 +38,8 @@ const ProductPage = () => {
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [cartMsg, setCartMsg]         = useState('');
   const [cartLoading, setCartLoading] = useState(false);
-  const [wishlisted, setWishlisted]   = useState(false);
+  const [wishlisted, setWishlisted]     = useState(false);
+  const [vendorStatus, setVendorStatus] = useState(null); // 0-4; 2 = Verified
 
   // Review form
   const [reviewForm, setReviewForm]   = useState({ comment: '', rating: 5 });
@@ -51,10 +52,15 @@ const ProductPage = () => {
     productsApi.getById(id)
       .then(prod => {
         setProduct(prod);
-        // Use reviews embedded in the product response (most reliable)
         const raw = prod?.reviews;
         const embedded = Array.isArray(raw) ? raw : (raw?.$values ?? []);
         setReviewList(embedded);
+        // Fetch vendor status separately if vendorId is present
+        if (prod?.vendorId) {
+          vendorApi.getById(prod.vendorId)
+            .then(v => setVendorStatus(v?.status ?? null))
+            .catch(() => {});
+        }
       })
       .catch(err => setError(err.message))
       .finally(() => setLoading(false));
@@ -253,21 +259,34 @@ const ProductPage = () => {
             )}
 
             {(product.vendorBusinessName || product.createdBy) && (
-              <p className="text-xs text-gray-400 mt-3">
-                Sold by{' '}
-                {product.vendorId ? (
-                  <Link
-                    to={`/vendor/profile/${product.vendorId}`}
-                    className="font-medium text-green-800 hover:text-orange-500 underline transition"
-                  >
-                    {product.vendorBusinessName || product.createdBy}
-                  </Link>
-                ) : (
-                  <span className="font-medium text-green-800">
-                    {product.vendorBusinessName || product.createdBy}
+              <div className="flex items-center gap-2 mt-3">
+                <p className="text-xs text-gray-400">
+                  Sold by{' '}
+                  {product.vendorId ? (
+                    <Link
+                      to={`/vendor/profile/${product.vendorId}`}
+                      className="font-medium text-green-800 hover:text-orange-500 underline transition"
+                    >
+                      {product.vendorBusinessName || product.createdBy}
+                    </Link>
+                  ) : (
+                    <span className="font-medium text-green-800">
+                      {product.vendorBusinessName || product.createdBy}
+                    </span>
+                  )}
+                </p>
+                {vendorStatus === 2 ? (
+                  <span className="flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
+                    <ShieldCheck size={11} />
+                    Verified
+                  </span>
+                ) : vendorStatus !== null && (
+                  <span className="flex items-center gap-1 text-xs text-gray-500 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full">
+                    <ShieldAlert size={11} />
+                    Unverified
                   </span>
                 )}
-              </p>
+              </div>
             )}
           </div>
         </div>

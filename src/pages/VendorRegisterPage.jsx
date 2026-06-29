@@ -11,25 +11,16 @@ import { useAuth } from '../context/AuthContext';
 import { vendor as vendorApi } from '../api/api';
 
 const EMPTY = {
-  firstName: '', lastName: '', email: '', phoneNumber: '',
-  password: '', confirmPassword: '',
   businessName: '', businessEmail: '', businessPhone: '',
   businessAddress: '', businessDescription: '',
 };
 
 const VendorRegisterPage = () => {
-  const { user, refreshAfterUpgrade } = useAuth();
+  const { refreshAfterUpgrade } = useAuth();
   const navigate  = useNavigate();
 
-  const [form, setForm]         = useState({
-    ...EMPTY,
-    firstName:   user?.firstName   ?? '',
-    lastName:    user?.lastName    ?? '',
-    email:       user?.email       ?? '',
-    phoneNumber: user?.phoneNumber ?? '',
-  });
-  const [showPassword, setShow] = useState(false);
-  const [loading, setLoading]   = useState(false);
+  const [form, setForm] = useState(EMPTY);
+  const [loading, setLoading] = useState(false);
 
   const handle = (e) => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
 
@@ -37,28 +28,15 @@ const VendorRegisterPage = () => {
     e.preventDefault();
 
     const required = [
-      'firstName','lastName','email','phoneNumber','password','confirmPassword',
       'businessName','businessEmail','businessPhone','businessAddress','businessDescription',
     ];
     if (required.some(k => !form[k])) {
       toast.error('Please fill in all fields.'); return;
     }
-    if (form.password !== form.confirmPassword) {
-      toast.error('Passwords do not match.'); return;
-    }
-    if (form.password.length < 10) {
-      toast.error('Password must be at least 10 characters.'); return;
-    }
 
     setLoading(true);
     try {
       await vendorApi.register({
-        firstName:           form.firstName,
-        lastName:            form.lastName,
-        email:               form.email,
-        phoneNumber:         form.phoneNumber,
-        password:            form.password,
-        confirmPassword:     form.confirmPassword,
         businessName:        form.businessName,
         businessEmail:       form.businessEmail,
         businessPhone:       form.businessPhone,
@@ -85,46 +63,8 @@ const VendorRegisterPage = () => {
 
         <form onSubmit={handleSubmit} className="pt-4 w-full max-w-lg">
 
-          {/* ── Personal details ───────────────────────────────── */}
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3 mt-2">
-            Personal Details
-          </p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label label="First Name" />
-              <Input name="firstName" value={form.firstName} onChange={handle} placeholder="First name" type="text" />
-            </div>
-            <div>
-              <Label label="Last Name" />
-              <Input name="lastName" value={form.lastName} onChange={handle} placeholder="Last name" type="text" />
-            </div>
-            <div>
-              <Label label="Email" />
-              <Input name="email" value={form.email} onChange={handle} placeholder="Email address" type="email" />
-            </div>
-            <div>
-              <Label label="Phone Number" />
-              <Input name="phoneNumber" value={form.phoneNumber} onChange={handle} placeholder="Phone number" type="tel" />
-            </div>
-            <div className="relative">
-              <Label label="Password" />
-              <Input name="password" value={form.password} onChange={handle}
-                placeholder="Password (min 10 chars)" type={showPassword ? 'text' : 'password'} />
-              <button type="button" className="absolute right-4 bottom-2.5 text-gray-400"
-                onClick={() => setShow(s => !s)}>
-                <i className={`fa-regular ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`} />
-              </button>
-            </div>
-            <div>
-              <Label label="Confirm Password" />
-              <Input name="confirmPassword" value={form.confirmPassword} onChange={handle}
-                placeholder="Confirm password" type={showPassword ? 'text' : 'password'} />
-            </div>
-          </div>
-
           {/* ── Business details ───────────────────────────────── */}
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3 mt-8">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3 mt-2">
             Business Details
           </p>
 

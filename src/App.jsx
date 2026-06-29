@@ -26,6 +26,7 @@ import VendorProfilePage   from './pages/VendorProfilePage';
 import AdminPage           from './pages/AdminPage';
 import VendorRegisterPage         from './pages/VendorRegisterPage';
 import ForceChangePasswordPage    from './pages/ForceChangePasswordPage';
+import VendorInvitePage           from './pages/VendorInvitePage';
 
 function App() {
   return (
@@ -57,6 +58,8 @@ function App() {
           <Route path="/force-change-password" element={<ProtectedRoute><ForceChangePasswordPage /></ProtectedRoute>} />
           <Route path="/account"        element={<ProtectedRoute><Account /></ProtectedRoute>} />
           <Route path="/vendor/register" element={<ProtectedRoute><VendorRegisterPage /></ProtectedRoute>} />
+          <Route path="/vendor/invite/accept"  element={<ProtectedRoute><VendorInvitePage action="accept"  /></ProtectedRoute>} />
+          <Route path="/vendor/invite/decline" element={<ProtectedRoute><VendorInvitePage action="decline" /></ProtectedRoute>} />
           <Route path="/cart"     element={<ProtectedRoute><CartPage /></ProtectedRoute>} />
           <Route path="/orders"   element={<ProtectedRoute><OrdersPage /></ProtectedRoute>} />
           <Route path="/wishlist" element={<ProtectedRoute><WishlistPage /></ProtectedRoute>} />

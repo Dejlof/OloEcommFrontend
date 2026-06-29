@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import MainLayout from '../layouts/MainLayout';
-import { products as productsApi, categories as categoriesApi, orders as ordersApi, vendor as vendorApi } from '../api/api';
+import { products as productsApi, categories as categoriesApi, orders as ordersApi, vendor as vendorApi, returns as returnsApi } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 import {
   Package, Plus, Trash2, Edit2, Image, Loader2,
   ShoppingBag, AlertCircle, ClipboardList,
-  Truck, CheckCircle, XCircle, Star, BarChart2, Layers, Send,
+  Truck, CheckCircle, XCircle, Star, BarChart2, Layers, Send, RotateCcw,
 } from 'lucide-react';
 import VendorAnalyticsPanel  from '../components/VendorAnalyticsPanel';
 import VendorSettingsPanel   from '../components/VendorSettingsPanel';
@@ -372,10 +372,13 @@ function VariantsModal({ product, onClose }) {
 
 // ── Order status badge ────────────────────────────────────────────────────────
 const STATUS_STYLES = {
-  Processing: 'bg-yellow-100 text-yellow-700',
-  Shipped:    'bg-blue-100 text-blue-700',
-  Delivered:  'bg-green-100 text-green-700',
-  Cancelled:  'bg-red-100 text-red-600',
+  Pending:         'bg-yellow-100 text-yellow-700',
+  Processing:      'bg-blue-100   text-blue-700',
+  Shipped:         'bg-purple-100 text-purple-700',
+  Delivered:       'bg-green-100  text-green-700',
+  Cancelled:       'bg-red-100    text-red-600',
+  ReturnRequested: 'bg-orange-100 text-orange-700',
+  Returned:        'bg-teal-100   text-teal-700',
 };
 
 function StatusBadge({ status }) {
@@ -499,6 +502,320 @@ function OrdersSection({ orders, loading, onAction }) {
 
 const PRODUCTS_PAGE_SIZE = 10;
 const ORDERS_PAGE_SIZE   = 10;
+
+// ── Return status maps ────────────────────────────────────────────────────────
+const RETURN_STATUS_LABELS  = { 0: 'Pending', 1: 'Under Review', 2: 'Approved', 3: 'Rejected', 4: 'Item Received', 5: 'Refunded' };
+const RETURN_STATUS_COLOURS = {
+  0: 'bg-yellow-100 text-yellow-700',
+  1: 'bg-blue-100 text-blue-700',
+  2: 'bg-green-100 text-green-700',
+  3: 'bg-red-100 text-red-600',
+  4: 'bg-purple-100 text-purple-700',
+  5: 'bg-emerald-100 text-emerald-700',
+};
+const RETURN_REASON_LABELS = { 0: 'Defective Item', 1: 'Wrong Item Received', 2: 'Item Not as Described', 3: 'Damaged in Shipping', 4: 'Changed Mind' };
+
+function ReturnStatusBadge({ status }) {
+  const key = typeof status === 'string' ? parseInt(status, 10) : status;
+  return (
+    <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${RETURN_STATUS_COLOURS[key] ?? 'bg-gray-100 text-gray-600'}`}>
+      {RETURN_STATUS_LABELS[key] ?? status}
+    </span>
+  );
+}
+
+// ── Initiator review modal ────────────────────────────────────────────────────
+function InitiatorReviewModal({ ret, onClose, onDone }) {
+  const [recommendApproval, setRecommendApproval] = useState(true);
+  const [notes, setNotes]   = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async () => {
+    setSaving(true);
+    try {
+      await returnsApi.initiatorReview(ret.id, { recommendApproval, notes });
+      toast.success('Review submitted.');
+      onDone();
+      onClose();
+    } catch (err) {
+      toast.error(err.message ?? 'Failed to submit review.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+        <h3 className="font-semibold text-green-900">Initiator Review — {ret.productName}</h3>
+
+        <div className="flex gap-3">
+          {[{ val: true, label: 'Recommend Approval' }, { val: false, label: 'Do Not Recommend' }].map(opt => (
+            <button key={String(opt.val)} type="button"
+              onClick={() => setRecommendApproval(opt.val)}
+              className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition ${
+                recommendApproval === opt.val
+                  ? opt.val
+                    ? 'bg-green-900 text-orange-100 border-green-900'
+                    : 'bg-red-600 text-white border-red-600'
+                  : 'border-gray-300 text-gray-500 hover:border-gray-400'
+              }`}>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Notes</label>
+          <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3}
+            placeholder="Add any notes for the approver…"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-green-900 focus:outline-none focus:ring-2 focus:ring-green-700 resize-none" />
+        </div>
+
+        <div className="flex gap-3 pt-1">
+          <button onClick={handleSubmit} disabled={saving}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-green-900 text-orange-100 rounded-xl text-sm hover:bg-green-800 disabled:opacity-50 transition">
+            {saving && <Loader2 size={14} className="animate-spin" />}
+            {saving ? 'Submitting…' : 'Submit Review'}
+          </button>
+          <button onClick={onClose}
+            className="px-5 py-2.5 border border-gray-300 rounded-xl text-sm text-green-900 hover:bg-gray-50 transition">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Approver review modal ─────────────────────────────────────────────────────
+function ApproverReviewModal({ ret, onClose, onDone }) {
+  const [approve, setApprove]           = useState(true);
+  const [rejectionReason, setRejection] = useState('');
+  const [saving, setSaving]             = useState(false);
+
+  const handleSubmit = async () => {
+    if (!approve && !rejectionReason.trim()) {
+      toast.error('Please provide a rejection reason.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await returnsApi.approverReview(ret.id, { approve, rejectionReason: approve ? '' : rejectionReason });
+      toast.success(approve ? 'Return approved.' : 'Return rejected.');
+      onDone();
+      onClose();
+    } catch (err) {
+      toast.error(err.message ?? 'Failed to submit review.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+        <h3 className="font-semibold text-green-900">Approver Review — {ret.productName}</h3>
+
+        {ret.initiatorNotes && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-xs text-blue-700">
+            <span className="font-semibold">Initiator notes: </span>{ret.initiatorNotes}
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          {[{ val: true, label: 'Approve' }, { val: false, label: 'Reject' }].map(opt => (
+            <button key={String(opt.val)} type="button"
+              onClick={() => setApprove(opt.val)}
+              className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition ${
+                approve === opt.val
+                  ? opt.val
+                    ? 'bg-green-900 text-orange-100 border-green-900'
+                    : 'bg-red-600 text-white border-red-600'
+                  : 'border-gray-300 text-gray-500 hover:border-gray-400'
+              }`}>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        {!approve && (
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Rejection Reason *</label>
+            <textarea value={rejectionReason} onChange={e => setRejection(e.target.value)} rows={3}
+              placeholder="Explain why this return is being rejected…"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-green-900 focus:outline-none focus:ring-2 focus:ring-green-700 resize-none" />
+          </div>
+        )}
+
+        <div className="flex gap-3 pt-1">
+          <button onClick={handleSubmit} disabled={saving}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm disabled:opacity-50 transition ${
+              approve ? 'bg-green-900 text-orange-100 hover:bg-green-800' : 'bg-red-600 text-white hover:bg-red-700'
+            }`}>
+            {saving && <Loader2 size={14} className="animate-spin" />}
+            {saving ? 'Submitting…' : approve ? 'Confirm Approval' : 'Confirm Rejection'}
+          </button>
+          <button onClick={onClose}
+            className="px-5 py-2.5 border border-gray-300 rounded-xl text-sm text-green-900 hover:bg-gray-50 transition">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Vendor returns panel ──────────────────────────────────────────────────────
+function VendorReturnsPanel({ vendorRole }) {
+  const [returnList, setReturnList]           = useState([]);
+  const [loading, setLoading]                 = useState(true);
+  const [initiatorModal, setInitiatorModal]   = useState(null);
+  const [approverModal, setApproverModal]     = useState(null);
+  const [receivingId, setReceivingId]         = useState(null);
+
+  const load = () => {
+    setLoading(true);
+    returnsApi.getVendorReturns()
+      .then(data => setReturnList(Array.isArray(data) ? data : (data?.items ?? [])))
+      .catch(err => toast.error(err.message))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, []);
+
+  // Role: 0=Owner 1=Initiator 2=Approver
+  const canInitiatorReview = (r) => {
+    const s = typeof r.status === 'string' ? parseInt(r.status, 10) : r.status;
+    return (vendorRole === 1 || vendorRole === 0) && s === 0; // Pending
+  };
+
+  const canApproverReview = (r) => {
+    const s = typeof r.status === 'string' ? parseInt(r.status, 10) : r.status;
+    if (vendorRole === 0) return s === 0 || s === 1; // Owner: Pending or InitiatorRecommended
+    if (vendorRole === 2) return s === 1;            // Approver: only InitiatorRecommended
+    return false;
+  };
+
+  // Owner or Initiator confirms physical receipt of returned item once Approved
+  const canMarkReceived = (r) => {
+    const s = typeof r.status === 'string' ? parseInt(r.status, 10) : r.status;
+    return (vendorRole === 0 || vendorRole === 1) && s === 2; // Approved
+  };
+
+  const handleItemReceived = async (r) => {
+    setReceivingId(r.id);
+    try {
+      await returnsApi.itemReceived(r.id);
+      toast.success('Item receipt confirmed.');
+      load();
+    } catch (err) {
+      toast.error(err.message ?? 'Failed to confirm receipt.');
+    } finally {
+      setReceivingId(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm">
+        <div className="flex justify-center py-16">
+          <Loader2 className="animate-spin text-orange-400" size={32} />
+        </div>
+      </div>
+    );
+  }
+
+  if (returnList.length === 0) {
+    return (
+      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm">
+        <div className="flex flex-col items-center py-16 text-center">
+          <RotateCcw size={40} className="text-orange-200 mb-3" />
+          <p className="text-gray-500">No return requests for your products.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100">
+          <h2 className="font-semibold text-green-900">Customer Returns ({returnList.length})</h2>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 text-left text-xs text-gray-500 uppercase tracking-wide">
+                <th className="px-5 py-3">Product</th>
+                <th className="px-5 py-3">Reason</th>
+                <th className="px-5 py-3">Refund</th>
+                <th className="px-5 py-3">Requested</th>
+                <th className="px-5 py-3">Status</th>
+                <th className="px-5 py-3">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {returnList.map(r => (
+                <tr key={r.id} className="hover:bg-gray-50 transition">
+                  <td className="px-5 py-3">
+                    <p className="font-medium text-green-900">{r.productName}</p>
+                    {r.additionalNotes && (
+                      <p className="text-xs text-gray-400 mt-0.5 italic truncate max-w-[180px]">"{r.additionalNotes}"</p>
+                    )}
+                  </td>
+                  <td className="px-5 py-3 text-gray-600">{RETURN_REASON_LABELS[r.reason] ?? r.reason}</td>
+                  <td className="px-5 py-3 font-semibold text-green-900">₦{Number(r.refundAmount).toLocaleString()}</td>
+                  <td className="px-5 py-3 text-gray-500 whitespace-nowrap">
+                    {new Date(r.requestedAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </td>
+                  <td className="px-5 py-3">
+                    <ReturnStatusBadge status={r.status} />
+                    {r.rejectionReason && (
+                      <p className="text-xs text-red-500 mt-1">{r.rejectionReason}</p>
+                    )}
+                  </td>
+                  <td className="px-5 py-3">
+                    <div className="flex flex-col gap-1.5">
+                      {canInitiatorReview(r) && (
+                        <button onClick={() => setInitiatorModal(r)}
+                          className="px-3 py-1.5 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition whitespace-nowrap">
+                          Recommend
+                        </button>
+                      )}
+                      {canApproverReview(r) && (
+                        <button onClick={() => setApproverModal(r)}
+                          className="px-3 py-1.5 text-xs bg-green-50 text-green-700 border border-green-200 rounded-lg hover:bg-green-100 transition whitespace-nowrap">
+                          Approve / Reject
+                        </button>
+                      )}
+                      {canMarkReceived(r) && (
+                        <button onClick={() => handleItemReceived(r)} disabled={receivingId === r.id}
+                          className="flex items-center gap-1 px-3 py-1.5 text-xs bg-purple-50 text-purple-700 border border-purple-200 rounded-lg hover:bg-purple-100 disabled:opacity-50 transition whitespace-nowrap">
+                          {receivingId === r.id && <Loader2 size={11} className="animate-spin" />}
+                          Mark Item Received
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {initiatorModal && (
+        <InitiatorReviewModal ret={initiatorModal} onClose={() => setInitiatorModal(null)} onDone={load} />
+      )}
+      {approverModal && (
+        <ApproverReviewModal ret={approverModal} onClose={() => setApproverModal(null)} onDone={load} />
+      )}
+    </>
+  );
+}
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 const VendorPage = () => {
@@ -740,6 +1057,7 @@ const VendorPage = () => {
           {[
             { key: 'products',  label: 'Products',  count: totalProducts },
             { key: 'orders',    label: 'Orders',    count: totalOrders   },
+            { key: 'returns',   label: 'Returns',   count: null          },
             { key: 'analytics', label: 'Analytics', count: null          },
             { key: 'settings',  label: 'Settings',  count: null          },
           ].map(tab => (
@@ -991,6 +1309,9 @@ const VendorPage = () => {
             )}
           </div>
         )}
+
+        {/* Returns panel */}
+        {activeTab === 'returns' && <VendorReturnsPanel vendorRole={vendorRole} />}
 
         {/* Analytics panel */}
         {activeTab === 'analytics' && <VendorAnalyticsPanel />}

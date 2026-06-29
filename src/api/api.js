@@ -114,6 +114,16 @@ export const vendor = {
   addBankAccount:     (vendorId, data)              => apiFetch(`/api/vendor/${vendorId}/bank-accounts`, { method: 'POST', body: JSON.stringify(data) }),
   setPrimaryAccount:  (vendorId, accountId)         => apiFetch(`/api/vendor/${vendorId}/bank-accounts/${accountId}/set-primary`, { method: 'PUT' }),
   deleteBankAccount:  (vendorId, accountId)         => apiFetch(`/api/vendor/${vendorId}/bank-accounts/${accountId}`, { method: 'DELETE' }),
+  getEarnings:        (vendorId)                    => apiFetch(`/api/settlements/vendor/${vendorId}/earnings`),
+  getSettlements:     (vendorId)                    => apiFetch(`/api/settlements/vendor/${vendorId}`),
+  getDebts:           (vendorId, recovered)         => {
+    const q = recovered !== undefined ? `?recovered=${recovered}` : '';
+    return apiFetch(`/api/settlements/vendor/${vendorId}/debts${q}`);
+  },
+  acceptInvite: (memberId, token) =>
+    apiFetch(`/api/vendor/invite/accept?memberId=${encodeURIComponent(memberId)}&token=${encodeURIComponent(token)}`),
+  declineInvite: (memberId, token) =>
+    apiFetch(`/api/vendor/invite/decline?memberId=${encodeURIComponent(memberId)}&token=${encodeURIComponent(token)}`),
 };
 
 // ── Products ──────────────────────────────────────────────────────────────────
@@ -295,6 +305,35 @@ export const analytics = {
   userGrowth:    (days = 30)        => apiFetch(`/api/Analytics/users/growth?days=${days}`),
   vendorMe:      ()                 => apiFetch('/api/Analytics/vendor/me'),
   vendorById:    (vendorId)         => apiFetch(`/api/Analytics/vendor/${vendorId}`),
+};
+
+// ── Settlements ───────────────────────────────────────────────────────────────
+export const settlements = {
+  getEligibleVendors: () => apiFetch('/api/settlements/eligible-vendors'),
+  settle:     (vendorId) => apiFetch(`/api/settlements/vendor/${vendorId}/process`, { method: 'POST' }),
+  processAll: ()         => apiFetch('/api/settlements/process-all', { method: 'POST' }),
+  addDebt:    (vendorId, data) => apiFetch(`/api/settlements/vendor/${vendorId}/debt`, { method: 'POST', body: JSON.stringify(data) }),
+};
+
+// ── Returns ───────────────────────────────────────────────────────────────────
+export const returns = {
+  create:           (data)                    => apiFetch('/api/Return', { method: 'POST', body: JSON.stringify(data) }),
+  getAll:           (params = {})             => { const q = new URLSearchParams(params).toString(); return apiFetch(`/api/Return${q ? `?${q}` : ''}`); },
+  getById:          (returnId)                => apiFetch(`/api/Return/${returnId}`),
+  getMine:          (params = {})             => { const q = new URLSearchParams(params).toString(); return apiFetch(`/api/Return/my-returns${q ? `?${q}` : ''}`); },
+  getVendorReturns: (params = {})             => { const q = new URLSearchParams(params).toString(); return apiFetch(`/api/Return/vendor-returns${q ? `?${q}` : ''}`); },
+  initiatorReview:  (returnId, data)          => apiFetch(`/api/Return/${returnId}/initiator-review`, { method: 'POST', body: JSON.stringify(data) }),
+  approverReview:   (returnId, data)          => apiFetch(`/api/Return/${returnId}/approver-review`,  { method: 'POST', body: JSON.stringify(data) }),
+  itemReceived:     (returnId)                => apiFetch(`/api/Return/${returnId}/item-received`,    { method: 'POST' }),
+  processRefund:    (returnId)                => apiFetch(`/api/Return/${returnId}/process-refund`,   { method: 'POST' }),
+};
+
+// ── Customer Bank Account ─────────────────────────────────────────────────────
+export const customerBankAccount = {
+  getAll:     ()          => apiFetch('/api/CustomerBankAccount'),
+  add:        (data)      => apiFetch('/api/CustomerBankAccount', { method: 'POST', body: JSON.stringify(data) }),
+  setPrimary: (accountId) => apiFetch(`/api/CustomerBankAccount/${accountId}/set-primary`, { method: 'PUT' }),
+  delete:     (accountId) => apiFetch(`/api/CustomerBankAccount/${accountId}`, { method: 'DELETE' }),
 };
 
 // ── Reviews ───────────────────────────────────────────────────────────────────
